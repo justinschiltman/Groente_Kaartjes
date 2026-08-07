@@ -47,12 +47,19 @@ export type CardElement = TextElement | ImageElement | ShapeElement
 /** All fields from every element type, each optional — lets property-editing UI patch whichever type is selected. */
 export type ElementPatch = Partial<TextElement> & Partial<ImageElement> & Partial<ShapeElement>
 
+export interface LayoutGuides {
+  /** Non-printing lines that split the card into this many equal bands — a layout aid only, never exported. */
+  count: number
+  orientation: 'horizontal' | 'vertical'
+}
+
 export interface Template {
   id: string
   name: string
   cardWidthMm: number
   cardHeightMm: number
   backgroundColor: string
+  guides?: LayoutGuides
   elements: CardElement[]
   createdAt: string
   updatedAt: string

@@ -4,7 +4,7 @@ import type { CardElement } from '@shared/types/template'
 
 interface LayersPanelProps {
   onSelect: (id: string) => void
-  onReorder: (id: string, direction: 'up' | 'down') => void
+  onReorder: (id: string, direction: 'up' | 'down' | 'front' | 'back') => void
   onDelete: (id: string) => void
 }
 
@@ -39,7 +39,15 @@ function LayersPanel({ onSelect, onReorder, onDelete }: LayersPanelProps): React
             <div className="layer-actions">
               <button
                 type="button"
-                title="Naar voren"
+                title="Helemaal naar voren"
+                disabled={index === 0}
+                onClick={() => onReorder(element.id, 'front')}
+              >
+                ⤒
+              </button>
+              <button
+                type="button"
+                title="Eén naar voren"
                 disabled={index === 0}
                 onClick={() => onReorder(element.id, 'up')}
               >
@@ -47,11 +55,19 @@ function LayersPanel({ onSelect, onReorder, onDelete }: LayersPanelProps): React
               </button>
               <button
                 type="button"
-                title="Naar achteren"
+                title="Eén naar achteren"
                 disabled={index === sorted.length - 1}
                 onClick={() => onReorder(element.id, 'down')}
               >
                 ↓
+              </button>
+              <button
+                type="button"
+                title="Helemaal naar achteren"
+                disabled={index === sorted.length - 1}
+                onClick={() => onReorder(element.id, 'back')}
+              >
+                ⤓
               </button>
               <button type="button" title="Verwijderen" onClick={() => onDelete(element.id)}>
                 🗑

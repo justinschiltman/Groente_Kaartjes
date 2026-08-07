@@ -1,5 +1,6 @@
 import { join } from 'node:path'
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { registerAssetsIpc } from './ipc/assets.ipc'
 
 const isDev = !app.isPackaged
 
@@ -37,6 +38,7 @@ function createMainWindow(): void {
 
 app.whenReady().then(() => {
   ipcMain.handle('app:getVersion', () => app.getVersion())
+  registerAssetsIpc()
 
   createMainWindow()
 

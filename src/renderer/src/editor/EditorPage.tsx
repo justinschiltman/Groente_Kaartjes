@@ -1,3 +1,6 @@
+import { useState } from 'react'
+import { importFonts as importFontsAndRegister } from '@renderer/assets/fontLoader'
+import { useAssetStore } from '@renderer/state/assetStore'
 import { useProjectStore } from '@renderer/state/projectStore'
 import CanvasEditor from './CanvasEditor'
 import LayersPanel from './LayersPanel'
@@ -8,9 +11,12 @@ import { useFabricCanvas } from './useFabricCanvas'
 function EditorPage(): React.JSX.Element {
   const canUndo = useProjectStore((state) => state.undoStack.length > 0)
   const canRedo = useProjectStore((state) => state.redoStack.length > 0)
+  const guides = useProjectStore((state) => state.template.guides)
+  const setFontFamilies = useAssetStore((state) => state.setFontFamilies)
+  const [importingFont, setImportingFont] = useState(false)
   const {
     canvasElRef,
-    guides,
+    guides: snapGuides,
     canvasSizePx,
     addText,
     addShape,
@@ -19,9 +25,20 @@ function EditorPage(): React.JSX.Element {
     updateSelectedProperties,
     reorderElement,
     selectElement,
+    setCardSizeMm,
     undo,
     redo
   } = useFabricCanvas()
+
+  async function handleImportFont(): Promise<void> {
+    setImportingFont(true)
+    try {
+      const families = await importFontsAndRegister()
+      setFontFamilies(families)
+    } finally {
+      setImportingFont(false)
+    }
+  }
 
   return (
     <div className="editor-page">
@@ -29,6 +46,8 @@ function EditorPage(): React.JSX.Element {
         onAddText={addText}
         onAddRect={() => addShape('rect')}
         onAddEllipse={() => addShape('ellipse')}
+        onImportFont={handleImportFont}
+        importingFont={importingFont}
         onUndo={undo}
         onRedo={redo}
         canUndo={canUndo}
@@ -36,8 +55,13 @@ function EditorPage(): React.JSX.Element {
       />
       <div className="editor-body">
         <LayersPanel onSelect={selectElement} onReorder={reorderElement} onDelete={deleteElement} />
-        <CanvasEditor canvasElRef={canvasElRef} canvasSizePx={canvasSizePx} guides={guides} />
-        <PropertyInspector onUpdate={updateSelectedProperties} onDelete={deleteElement} onDuplicate={duplicateElement} />
+        <CanvasEditor canvasElRef={canvasElRef} canvasSizePx={canvasSizePx} snapGuides={snapGuides} layoutGuides={guides} />
+        <PropertyInspector
+          onUpdate={updateSelectedProperties}
+          onDelete={deleteElement}
+          onDuplicate={duplicateElement}
+          onSetCardSize={setCardSizeMm}
+        />
       </div>
     </div>
   )

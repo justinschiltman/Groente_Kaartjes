@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
+import { useAssetStore } from '@renderer/state/assetStore'
 import { useEditorUiStore } from '@renderer/state/editorUiStore'
 import { useProjectStore } from '@renderer/state/projectStore'
-import type { CardElement, ElementPatch } from '@shared/types/template'
+import type { CardElement, ElementPatch, LayoutGuides } from '@shared/types/template'
 
 const WEB_SAFE_FONTS = ['Arial', 'Helvetica', 'Georgia', 'Times New Roman', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Courier New']
 
@@ -9,19 +10,15 @@ interface PropertyInspectorProps {
   onUpdate: (patch: ElementPatch) => void
   onDelete: (id: string) => void
   onDuplicate: (id: string) => void
+  onSetCardSize: (widthMm: number, heightMm: number) => void
 }
 
-function PropertyInspector({ onUpdate, onDelete, onDuplicate }: PropertyInspectorProps): React.JSX.Element {
+function PropertyInspector({ onUpdate, onDelete, onDuplicate, onSetCardSize }: PropertyInspectorProps): React.JSX.Element {
   const selectedElementId = useEditorUiStore((state) => state.selectedElementId)
   const element = useProjectStore((state) => state.template.elements.find((el) => el.id === selectedElementId))
 
   if (!element) {
-    return (
-      <div className="property-inspector">
-        <h2>Eigenschappen</h2>
-        <p className="empty-hint">Selecteer een element om de eigenschappen te bewerken.</p>
-      </div>
-    )
+    return <CardSettingsPanel onSetCardSize={onSetCardSize} />
   }
 
   return (
@@ -35,6 +32,79 @@ function PropertyInspector({ onUpdate, onDelete, onDuplicate }: PropertyInspecto
         <button type="button" className="danger" onClick={() => onDelete(element.id)}>
           Verwijderen
         </button>
+      </div>
+    </div>
+  )
+}
+
+const SIZE_PRESETS: { label: string; widthMm: number; heightMm: number }[] = [
+  { label: 'A4 staand', widthMm: 210, heightMm: 297 },
+  { label: 'A4 liggend', widthMm: 297, heightMm: 210 },
+  { label: 'A6 staand', widthMm: 105, heightMm: 148 }
+]
+
+function CardSettingsPanel({
+  onSetCardSize
+}: {
+  onSetCardSize: (widthMm: number, heightMm: number) => void
+}): React.JSX.Element {
+  const cardWidthMm = useProjectStore((state) => state.template.cardWidthMm)
+  const cardHeightMm = useProjectStore((state) => state.template.cardHeightMm)
+  const guides = useProjectStore((state) => state.template.guides)
+  const setGuides = useProjectStore((state) => state.setGuides)
+
+  return (
+    <div className="property-inspector">
+      <h2>Kaartinstellingen</h2>
+      <p className="empty-hint">Selecteer een element om de eigenschappen te bewerken, of pas hier de kaart zelf aan.</p>
+
+      <div className="property-form">
+        <div className="field-row">
+          <NumberField label="Breedte (mm)" value={cardWidthMm} onCommit={(w) => onSetCardSize(w, cardHeightMm)} />
+          <NumberField label="Hoogte (mm)" value={cardHeightMm} onCommit={(h) => onSetCardSize(cardWidthMm, h)} />
+        </div>
+        <button type="button" onClick={() => onSetCardSize(cardHeightMm, cardWidthMm)}>
+          ⇄ Rechtop zetten / liggend maken
+        </button>
+
+        <div className="field-row toggle-row">
+          {SIZE_PRESETS.map((preset) => (
+            <button key={preset.label} type="button" className="toggle" onClick={() => onSetCardSize(preset.widthMm, preset.heightMm)}>
+              {preset.label}
+            </button>
+          ))}
+        </div>
+
+        <hr />
+
+        <label className="field checkbox-field">
+          <input
+            type="checkbox"
+            checked={Boolean(guides)}
+            onChange={(e) => setGuides(e.target.checked ? { count: 3, orientation: 'horizontal' } : undefined)}
+          />
+          <span>Hulplijnen tonen (niet afgedrukt)</span>
+        </label>
+
+        {guides && (
+          <div className="field-row">
+            <NumberField
+              label="Aantal delen"
+              value={guides.count}
+              onCommit={(count) => setGuides({ ...guides, count: Math.max(2, Math.round(count)) })}
+            />
+            <label className="field">
+              <span>Richting</span>
+              <select
+                value={guides.orientation}
+                onChange={(e) => setGuides({ ...guides, orientation: e.target.value as LayoutGuides['orientation'] })}
+              >
+                <option value="horizontal">Horizontaal</option>
+                <option value="vertical">Verticaal</option>
+              </select>
+            </label>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -73,6 +143,82 @@ function NumberField({ label, value, step = 1, onCommit }: NumberFieldProps): Re
           if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
         }}
       />
+    </label>
+  )
+}
+
+const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/
+
+interface ColorFieldProps {
+  label: string
+  value: string
+  onCommit: (value: string) => void
+}
+
+function ColorField({ label, value, onCommit }: ColorFieldProps): React.JSX.Element {
+  const [hexText, setHexText] = useState(value)
+
+  useEffect(() => {
+    setHexText(value)
+  }, [value])
+
+  function commitHexText(): void {
+    if (HEX_COLOR_PATTERN.test(hexText)) onCommit(hexText)
+    else setHexText(value)
+  }
+
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <div className="color-field">
+        <input
+          type="color"
+          value={HEX_COLOR_PATTERN.test(hexText) ? hexText : value}
+          onChange={(e) => {
+            setHexText(e.target.value)
+            onCommit(e.target.value)
+          }}
+        />
+        <input
+          type="text"
+          className="hex-input"
+          value={hexText}
+          spellCheck={false}
+          onChange={(e) => setHexText(e.target.value)}
+          onBlur={commitHexText}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+          }}
+        />
+      </div>
+    </label>
+  )
+}
+
+function FontFamilyField({ value, onCommit }: { value: string; onCommit: (value: string) => void }): React.JSX.Element {
+  const importedFonts = useAssetStore((state) => state.fontFamilies)
+
+  return (
+    <label className="field">
+      <span>Lettertype</span>
+      <select value={value} onChange={(e) => onCommit(e.target.value)}>
+        {importedFonts.length > 0 && (
+          <optgroup label="Geïmporteerd">
+            {importedFonts.map((font) => (
+              <option key={font} value={font}>
+                {font}
+              </option>
+            ))}
+          </optgroup>
+        )}
+        <optgroup label="Systeem">
+          {WEB_SAFE_FONTS.map((font) => (
+            <option key={font} value={font}>
+              {font}
+            </option>
+          ))}
+        </optgroup>
+      </select>
     </label>
   )
 }
@@ -117,16 +263,7 @@ function TextFields({
         />
       </label>
 
-      <label className="field">
-        <span>Lettertype</span>
-        <select value={element.fontFamily} onChange={(e) => onUpdate({ fontFamily: e.target.value })}>
-          {WEB_SAFE_FONTS.map((font) => (
-            <option key={font} value={font}>
-              {font}
-            </option>
-          ))}
-        </select>
-      </label>
+      <FontFamilyField value={element.fontFamily} onCommit={(fontFamily) => onUpdate({ fontFamily })} />
 
       <div className="field-row">
         <NumberField label="Grootte (pt)" value={element.fontSize} onCommit={(fontSize) => onUpdate({ fontSize })} />
@@ -170,10 +307,7 @@ function TextFields({
         ))}
       </div>
 
-      <label className="field">
-        <span>Kleur</span>
-        <input type="color" value={element.color} onChange={(e) => onUpdate({ color: e.target.value })} />
-      </label>
+      <ColorField label="Kleur" value={element.color} onCommit={(color) => onUpdate({ color })} />
     </>
   )
 }
@@ -187,14 +321,8 @@ function ShapeFields({
 }): React.JSX.Element {
   return (
     <>
-      <label className="field">
-        <span>Vulkleur</span>
-        <input type="color" value={element.fill} onChange={(e) => onUpdate({ fill: e.target.value })} />
-      </label>
-      <label className="field">
-        <span>Lijnkleur</span>
-        <input type="color" value={element.stroke ?? '#000000'} onChange={(e) => onUpdate({ stroke: e.target.value })} />
-      </label>
+      <ColorField label="Vulkleur" value={element.fill} onCommit={(fill) => onUpdate({ fill })} />
+      <ColorField label="Lijnkleur" value={element.stroke ?? '#000000'} onCommit={(stroke) => onUpdate({ stroke })} />
       <div className="field-row">
         <NumberField
           label="Lijndikte (mm)"

@@ -24,8 +24,9 @@ export interface UseFabricCanvasResult {
   deleteElement: (id: string) => void
   duplicateElement: (id: string) => void
   updateSelectedProperties: (patch: ElementPatch) => void
-  reorderElement: (id: string, direction: 'up' | 'down') => void
+  reorderElement: (id: string, direction: 'up' | 'down' | 'front' | 'back') => void
   selectElement: (id: string | null) => void
+  setCardSizeMm: (widthMm: number, heightMm: number) => void
   undo: () => void
   redo: () => void
 }
@@ -34,7 +35,7 @@ export function useFabricCanvas(): UseFabricCanvasResult {
   const canvasElRef = useRef<HTMLCanvasElement>(null)
   const fabricCanvasRef = useRef<Canvas | null>(null)
   const [guides, setGuides] = useState<SnapGuide[]>([])
-  const [canvasSizePx] = useState(() => {
+  const [canvasSizePx, setCanvasSizePx] = useState(() => {
     const template = useProjectStore.getState().template
     return { width: mmToPx(template.cardWidthMm), height: mmToPx(template.cardHeightMm) }
   })
@@ -140,7 +141,7 @@ export function useFabricCanvas(): UseFabricCanvasResult {
   }, [])
 
   const reorderElement = useCallback(
-    (id: string, direction: 'up' | 'down') => {
+    (id: string, direction: 'up' | 'down' | 'front' | 'back') => {
       useProjectStore.getState().reorderElement(id, direction)
       rehydrate()
     },
@@ -157,13 +158,25 @@ export function useFabricCanvas(): UseFabricCanvasResult {
     rehydrate()
   }, [rehydrate])
 
+  const setCardSizeMm = useCallback((widthMm: number, heightMm: number) => {
+    useProjectStore.getState().setCardSize(widthMm, heightMm)
+    const sizePx = { width: mmToPx(widthMm), height: mmToPx(heightMm) }
+    setCanvasSizePx(sizePx)
+    fabricCanvasRef.current?.setDimensions(sizePx)
+    fabricCanvasRef.current?.requestRenderAll()
+  }, [])
+
+  // Captured once: the mount effect below must only read the size at mount time. Later resizes go
+  // through setCardSizeMm's imperative canvas.setDimensions() call, not through recreating the canvas.
+  const initialSizePxRef = useRef(canvasSizePx)
+
   useEffect(() => {
     const el = canvasElRef.current
     if (!el) return
 
     const canvas = new Canvas(el, {
-      width: canvasSizePx.width,
-      height: canvasSizePx.height,
+      width: initialSizePxRef.current.width,
+      height: initialSizePxRef.current.height,
       selection: false,
       preserveObjectStacking: true
     })
@@ -259,10 +272,10 @@ export function useFabricCanvas(): UseFabricCanvasResult {
       void canvas.dispose()
       fabricCanvasRef.current = null
     }
-    // Every dependency below is referentially stable for the component's lifetime (canvasSizePx is
-    // set once via useState; the callbacks read fresh state via getState() rather than closing over
-    // props), so in practice this effect only runs on mount and cleans up on unmount.
-  }, [canvasSizePx.width, canvasSizePx.height, rehydrate, deleteElement, duplicateElement, undo, redo])
+    // Every dependency below is referentially stable for the component's lifetime (the callbacks read
+    // fresh state via getState() rather than closing over props; initial size comes from a ref, not
+    // canvasSizePx, specifically so later resizes don't recreate the canvas) — this runs once on mount.
+  }, [rehydrate, deleteElement, duplicateElement, undo, redo])
 
   return {
     canvasElRef,
@@ -275,6 +288,7 @@ export function useFabricCanvas(): UseFabricCanvasResult {
     updateSelectedProperties,
     reorderElement,
     selectElement,
+    setCardSizeMm,
     undo,
     redo
   }

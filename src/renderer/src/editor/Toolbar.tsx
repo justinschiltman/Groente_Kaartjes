@@ -2,13 +2,25 @@ interface ToolbarProps {
   onAddText: () => void
   onAddRect: () => void
   onAddEllipse: () => void
+  onImportFont: () => void
+  importingFont: boolean
   onUndo: () => void
   onRedo: () => void
   canUndo: boolean
   canRedo: boolean
 }
 
-function Toolbar({ onAddText, onAddRect, onAddEllipse, onUndo, onRedo, canUndo, canRedo }: ToolbarProps): React.JSX.Element {
+function Toolbar({
+  onAddText,
+  onAddRect,
+  onAddEllipse,
+  onImportFont,
+  importingFont,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo
+}: ToolbarProps): React.JSX.Element {
   return (
     <div className="toolbar">
       <div className="toolbar-group">
@@ -20,6 +32,9 @@ function Toolbar({ onAddText, onAddRect, onAddEllipse, onUndo, onRedo, canUndo, 
         </button>
         <button type="button" onClick={onAddEllipse}>
           + Ellips
+        </button>
+        <button type="button" onClick={onImportFont} disabled={importingFont}>
+          {importingFont ? 'Bezig…' : '+ Lettertype importeren'}
         </button>
       </div>
       <div className="toolbar-group">

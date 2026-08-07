@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { CardElement, ElementPatch, Template } from '@shared/types/template'
+import type { CardElement, ElementPatch, LayoutGuides, Template } from '@shared/types/template'
 import { createDefaultTemplate } from '@shared/types/template'
 
 const UNDO_LIMIT = 50
@@ -37,7 +37,9 @@ interface ProjectState {
   updateElement: (id: string, patch: ElementPatch) => void
   removeElement: (id: string) => void
   duplicateElement: (id: string) => string | undefined
-  reorderElement: (id: string, direction: 'up' | 'down') => void
+  reorderElement: (id: string, direction: 'up' | 'down' | 'front' | 'back') => void
+  setCardSize: (widthMm: number, heightMm: number) => void
+  setGuides: (guides: LayoutGuides | undefined) => void
   undo: () => void
   redo: () => void
 }
@@ -79,13 +81,45 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       commit((elements) => {
         const sorted = [...elements].sort((a, b) => a.zIndex - b.zIndex)
         const index = sorted.findIndex((el) => el.id === id)
-        const swapWith = direction === 'up' ? index + 1 : index - 1
-        if (index === -1 || swapWith < 0 || swapWith >= sorted.length) return elements
-        const zHere = sorted[index].zIndex
-        sorted[index].zIndex = sorted[swapWith].zIndex
-        sorted[swapWith].zIndex = zHere
+        if (index === -1) return elements
+
+        if (direction === 'up' || direction === 'down') {
+          const swapWith = direction === 'up' ? index + 1 : index - 1
+          if (swapWith < 0 || swapWith >= sorted.length) return elements
+          const zHere = sorted[index].zIndex
+          sorted[index].zIndex = sorted[swapWith].zIndex
+          sorted[swapWith].zIndex = zHere
+          return sorted
+        }
+
+        // front/back: move the element to the extreme and renormalize everyone to a dense 0..N-1 order.
+        const [moved] = sorted.splice(index, 1)
+        if (direction === 'front') sorted.push(moved)
+        else sorted.unshift(moved)
+        sorted.forEach((el, i) => {
+          el.zIndex = i
+        })
         return sorted
       }),
+
+    setCardSize: (widthMm, heightMm) => {
+      const { template } = get()
+      const nextTemplate: Template = {
+        ...template,
+        cardWidthMm: widthMm,
+        cardHeightMm: heightMm,
+        updatedAt: new Date().toISOString()
+      }
+      set({ template: nextTemplate })
+      persist(nextTemplate)
+    },
+
+    setGuides: (guides) => {
+      const { template } = get()
+      const nextTemplate: Template = { ...template, guides, updatedAt: new Date().toISOString() }
+      set({ template: nextTemplate })
+      persist(nextTemplate)
+    },
 
     undo: () => {
       const { template, undoStack, redoStack } = get()
