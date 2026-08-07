@@ -28,7 +28,7 @@
     "vite": "^7.3.6"
   },
   "dependencies": {
-    "fabric": "^7.4.0",
+    "fabric": "6.9.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "zustand": "^5.0.14"

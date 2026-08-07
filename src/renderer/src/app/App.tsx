@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
+import EditorPage from '../editor/EditorPage'
 
 function App(): React.JSX.Element {
-  const [version, setVersion] = useState<string>('...')
+  const [version, setVersion] = useState<string>('')
 
   useEffect(() => {
     window.api.getAppVersion().then(setVersion)
@@ -9,8 +10,11 @@ function App(): React.JSX.Element {
 
   return (
     <div className="app-shell">
-      <h1>Groente Kaartjes</h1>
-      <p>Prijskaartjes ontwerpen — v{version}</p>
+      <header className="app-header">
+        <h1>Groente Kaartjes</h1>
+        {version && <span className="app-version">v{version}</span>}
+      </header>
+      <EditorPage />
     </div>
   )
 }
