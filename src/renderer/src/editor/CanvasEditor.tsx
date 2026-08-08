@@ -7,6 +7,8 @@ interface CanvasEditorProps {
   canvasSizePx: { width: number; height: number }
   snapGuides: SnapGuide[]
   layoutGuides?: LayoutGuides
+  zoom: number
+  onWheel?: (event: React.WheelEvent) => void
 }
 
 function layoutGuidePositions(guides: LayoutGuides, sizePx: number): number[] {
@@ -17,29 +19,42 @@ function layoutGuidePositions(guides: LayoutGuides, sizePx: number): number[] {
   return positions
 }
 
-function CanvasEditor({ canvasElRef, canvasSizePx, snapGuides, layoutGuides }: CanvasEditorProps): React.JSX.Element {
+function CanvasEditor({ canvasElRef, canvasSizePx, snapGuides, layoutGuides, zoom, onWheel }: CanvasEditorProps): React.JSX.Element {
   const layoutGuidePx = layoutGuides
     ? layoutGuidePositions(layoutGuides, layoutGuides.orientation === 'horizontal' ? canvasSizePx.height : canvasSizePx.width)
     : []
 
   return (
-    <div className="canvas-viewport">
-      <div className="canvas-stage" style={{ width: canvasSizePx.width, height: canvasSizePx.height }}>
-        <canvas ref={canvasElRef} width={canvasSizePx.width} height={canvasSizePx.height} />
-        {layoutGuidePx.map((position, index) => (
-          <div
-            key={`layout-${index}`}
-            className={`layout-guide layout-guide-${layoutGuides?.orientation}`}
-            style={layoutGuides?.orientation === 'horizontal' ? { top: position } : { left: position }}
-          />
-        ))}
-        {snapGuides.map((guide, index) => (
-          <div
-            key={`snap-${guide.type}-${index}`}
-            className={`snap-guide snap-guide-${guide.type}`}
-            style={guide.type === 'vertical' ? { left: guide.position } : { top: guide.position }}
-          />
-        ))}
+    <div className="canvas-viewport" onWheel={onWheel}>
+      <div
+        className="canvas-zoom-wrapper"
+        style={{ width: canvasSizePx.width * zoom, height: canvasSizePx.height * zoom }}
+      >
+        <div
+          className="canvas-stage"
+          style={{
+            width: canvasSizePx.width,
+            height: canvasSizePx.height,
+            transform: `scale(${zoom})`,
+            transformOrigin: 'top left'
+          }}
+        >
+          <canvas ref={canvasElRef} width={canvasSizePx.width} height={canvasSizePx.height} />
+          {layoutGuidePx.map((position, index) => (
+            <div
+              key={`layout-${index}`}
+              className={`layout-guide layout-guide-${layoutGuides?.orientation}`}
+              style={layoutGuides?.orientation === 'horizontal' ? { top: position } : { left: position }}
+            />
+          ))}
+          {snapGuides.map((guide, index) => (
+            <div
+              key={`snap-${guide.type}-${index}`}
+              className={`snap-guide snap-guide-${guide.type}`}
+              style={guide.type === 'vertical' ? { left: guide.position } : { top: guide.position }}
+            />
+          ))}
+        </div>
       </div>
     </div>
   )

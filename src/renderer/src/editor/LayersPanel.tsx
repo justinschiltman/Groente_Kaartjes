@@ -1,5 +1,5 @@
 import { useEditorUiStore } from '@renderer/state/editorUiStore'
-import { useProjectStore } from '@renderer/state/projectStore'
+import { useActiveTemplate } from '@renderer/state/projectStore'
 import type { CardElement } from '@shared/types/template'
 
 interface LayersPanelProps {
@@ -21,7 +21,7 @@ function layerIcon(element: CardElement): string {
 }
 
 function LayersPanel({ onSelect, onReorder, onDelete }: LayersPanelProps): React.JSX.Element {
-  const elements = useProjectStore((state) => state.template.elements)
+  const elements = useActiveTemplate().elements
   const selectedElementId = useEditorUiStore((state) => state.selectedElementId)
   const sorted = [...elements].sort((a, b) => b.zIndex - a.zIndex)
 

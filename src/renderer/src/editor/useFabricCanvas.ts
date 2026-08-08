@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Canvas } from 'fabric'
-import { useProjectStore } from '@renderer/state/projectStore'
+import { getActiveTemplate, useProjectStore } from '@renderer/state/projectStore'
+import { useDataStore } from '@renderer/state/dataStore'
 import { useEditorUiStore } from '@renderer/state/editorUiStore'
+import { resolveBoundText } from '@shared/dataBinding'
 import type { ElementPatch, ShapeKind } from '@shared/types/template'
 import { createShapeElement, createTextElement } from './elementFactory'
 import {
@@ -27,6 +29,10 @@ export interface UseFabricCanvasResult {
   reorderElement: (id: string, direction: 'up' | 'down' | 'front' | 'back') => void
   selectElement: (id: string | null) => void
   setCardSizeMm: (widthMm: number, heightMm: number) => void
+  switchTemplate: (templateId: string) => void
+  addTemplate: () => void
+  duplicateTemplate: (id: string) => void
+  deleteTemplate: (id: string) => void
   undo: () => void
   redo: () => void
 }
@@ -36,19 +42,41 @@ export function useFabricCanvas(): UseFabricCanvasResult {
   const fabricCanvasRef = useRef<Canvas | null>(null)
   const [guides, setGuides] = useState<SnapGuide[]>([])
   const [canvasSizePx, setCanvasSizePx] = useState(() => {
-    const template = useProjectStore.getState().template
+    const template = getActiveTemplate()
     return { width: mmToPx(template.cardWidthMm), height: mmToPx(template.cardHeightMm) }
   })
 
-  // Rebuilds every fabric object from the store. Used for mount/undo/redo/reorder — never wired
-  // to a generic store subscription, so canvas-originated commits don't trigger a redundant rebuild.
+  // For every bound text element on canvas, shows the current preview row's value (formatted per
+  // formatAs) instead of its static text — falls back to the static text when unbound or no data
+  // is imported yet. Deliberately a lightweight in-place update (not a rehydrate) so paging through
+  // preview rows doesn't disturb the current selection.
+  const applyPreviewData = useCallback(() => {
+    const canvas = fabricCanvasRef.current
+    if (!canvas) return
+    const template = getActiveTemplate()
+    const { rows, previewRowIndex } = useDataStore.getState()
+    const row = rows[previewRowIndex]
+    canvas.getObjects().forEach((obj) => {
+      const tagged = obj as TaggedFabricObject
+      const element = template.elements.find((el) => el.id === tagged.elementId)
+      if (element?.type === 'text') {
+        const resolved = resolveBoundText(element, row)
+        obj.set('text', resolved !== null ? resolved : element.text)
+      }
+    })
+    canvas.requestRenderAll()
+  }, [])
+
+  // Rebuilds every fabric object from the store for the CURRENT active template. Used for
+  // mount/undo/redo/reorder/template-switch — never wired to a generic store subscription, so
+  // canvas-originated commits don't trigger a redundant rebuild.
   const rehydrate = useCallback(() => {
     const canvas = fabricCanvasRef.current
     if (!canvas) return
     // Captured before clear() — clear() synchronously fires 'selection:cleared', which would
     // otherwise reset the store's selection before we get a chance to read and restore it.
     const selectedId = useEditorUiStore.getState().selectedElementId
-    const { template } = useProjectStore.getState()
+    const template = getActiveTemplate()
     canvas.clear()
     canvas.backgroundColor = template.backgroundColor
     const sorted = [...template.elements].sort((a, b) => a.zIndex - b.zIndex)
@@ -59,12 +87,24 @@ export function useFabricCanvas(): UseFabricCanvasResult {
     useEditorUiStore.getState().select(selectedObj ? selectedId : null)
 
     canvas.requestRenderAll()
-  }, [])
+    applyPreviewData()
+  }, [applyPreviewData])
+
+  // Used whenever the ACTIVE template itself changes (switch/add/duplicate/delete): resizes the
+  // canvas to the new template's card size, then rehydrates its elements.
+  const syncToActiveTemplate = useCallback(() => {
+    const canvas = fabricCanvasRef.current
+    const template = getActiveTemplate()
+    const sizePx = { width: mmToPx(template.cardWidthMm), height: mmToPx(template.cardHeightMm) }
+    setCanvasSizePx(sizePx)
+    canvas?.setDimensions(sizePx)
+    rehydrate()
+  }, [rehydrate])
 
   const addText = useCallback(() => {
-    const { template, addElement } = useProjectStore.getState()
+    const template = getActiveTemplate()
     const element = createTextElement(template.elements, template.cardWidthMm, template.cardHeightMm)
-    addElement(element)
+    useProjectStore.getState().addElement(element)
     const canvas = fabricCanvasRef.current
     if (canvas) {
       const obj = buildFabricObject(element)
@@ -76,9 +116,9 @@ export function useFabricCanvas(): UseFabricCanvasResult {
   }, [])
 
   const addShape = useCallback((shape: ShapeKind) => {
-    const { template, addElement } = useProjectStore.getState()
+    const template = getActiveTemplate()
     const element = createShapeElement(template.elements, template.cardWidthMm, template.cardHeightMm, shape)
-    addElement(element)
+    useProjectStore.getState().addElement(element)
     const canvas = fabricCanvasRef.current
     if (canvas) {
       const obj = buildFabricObject(element)
@@ -117,7 +157,7 @@ export function useFabricCanvas(): UseFabricCanvasResult {
   const duplicateElement = useCallback((id: string) => {
     const newId = useProjectStore.getState().duplicateElement(id)
     if (!newId) return
-    const newElement = useProjectStore.getState().template.elements.find((el) => el.id === newId)
+    const newElement = getActiveTemplate().elements.find((el) => el.id === newId)
     const canvas = fabricCanvasRef.current
     if (canvas && newElement) {
       const obj = buildFabricObject(newElement)
@@ -128,17 +168,24 @@ export function useFabricCanvas(): UseFabricCanvasResult {
     useEditorUiStore.getState().select(newId)
   }, [])
 
-  const updateSelectedProperties = useCallback((patch: ElementPatch) => {
-    const id = useEditorUiStore.getState().selectedElementId
-    if (!id) return
-    useProjectStore.getState().updateElement(id, patch)
-    const canvas = fabricCanvasRef.current
-    const obj = canvas ? findObjectByElementId(canvas.getObjects(), id) : undefined
-    if (canvas && obj) {
-      applyPatchToFabricObject(obj, patch)
-      canvas.requestRenderAll()
-    }
-  }, [])
+  const updateSelectedProperties = useCallback(
+    (patch: ElementPatch) => {
+      const id = useEditorUiStore.getState().selectedElementId
+      if (!id) return
+      useProjectStore.getState().updateElement(id, patch)
+      const canvas = fabricCanvasRef.current
+      const obj = canvas ? findObjectByElementId(canvas.getObjects(), id) : undefined
+      if (canvas && obj) {
+        applyPatchToFabricObject(obj, patch)
+        canvas.requestRenderAll()
+      }
+      // Covers bindingKey/formatAs changes (and static text edits on an element that's since been
+      // unbound) — applyPatchToFabricObject above already set patch.text verbatim when present,
+      // this reconciles it against the current binding/preview-row state.
+      applyPreviewData()
+    },
+    [applyPreviewData]
+  )
 
   const reorderElement = useCallback(
     (id: string, direction: 'up' | 'down' | 'front' | 'back') => {
@@ -166,8 +213,38 @@ export function useFabricCanvas(): UseFabricCanvasResult {
     fabricCanvasRef.current?.requestRenderAll()
   }, [])
 
+  const switchTemplate = useCallback(
+    (templateId: string) => {
+      useProjectStore.getState().setActiveTemplate(templateId)
+      syncToActiveTemplate()
+    },
+    [syncToActiveTemplate]
+  )
+
+  const addTemplate = useCallback(() => {
+    useProjectStore.getState().addTemplate()
+    syncToActiveTemplate()
+  }, [syncToActiveTemplate])
+
+  const duplicateTemplate = useCallback(
+    (id: string) => {
+      useProjectStore.getState().duplicateTemplate(id)
+      syncToActiveTemplate()
+    },
+    [syncToActiveTemplate]
+  )
+
+  const deleteTemplate = useCallback(
+    (id: string) => {
+      useProjectStore.getState().deleteTemplate(id)
+      syncToActiveTemplate()
+    },
+    [syncToActiveTemplate]
+  )
+
   // Captured once: the mount effect below must only read the size at mount time. Later resizes go
-  // through setCardSizeMm's imperative canvas.setDimensions() call, not through recreating the canvas.
+  // through setCardSizeMm/syncToActiveTemplate's imperative canvas.setDimensions() call, not
+  // through recreating the canvas.
   const initialSizePxRef = useRef(canvasSizePx)
 
   useEffect(() => {
@@ -277,6 +354,16 @@ export function useFabricCanvas(): UseFabricCanvasResult {
     // canvasSizePx, specifically so later resizes don't recreate the canvas) — this runs once on mount.
   }, [rehydrate, deleteElement, duplicateElement, undo, redo])
 
+  // Reacts to imports/preview-row changes from the (separate) data store — e.g. paging through rows
+  // or importing a new sheet — without needing dataStore reads inside the render path above.
+  useEffect(() => {
+    return useDataStore.subscribe((state, prevState) => {
+      if (state.rows !== prevState.rows || state.previewRowIndex !== prevState.previewRowIndex) {
+        applyPreviewData()
+      }
+    })
+  }, [applyPreviewData])
+
   return {
     canvasElRef,
     guides,
@@ -289,6 +376,10 @@ export function useFabricCanvas(): UseFabricCanvasResult {
     reorderElement,
     selectElement,
     setCardSizeMm,
+    switchTemplate,
+    addTemplate,
+    duplicateTemplate,
+    deleteTemplate,
     undo,
     redo
   }

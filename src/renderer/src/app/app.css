@@ -195,10 +195,14 @@ button {
 
 .canvas-viewport {
   flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  /* Grid + place-items (not flexbox align/justify-content) so content taller/wider than the
+     viewport stays fully scrollable instead of the overflow becoming unreachable — a well-known
+     flexbox-centering-in-a-scroll-container issue. This was the "clipped by the top bar" bug. */
+  display: grid;
+  place-items: center;
+  padding: 40px;
   background:
     linear-gradient(45deg, #e9ede9 25%, transparent 25%, transparent 75%, #e9ede9 75%),
     linear-gradient(45deg, #e9ede9 25%, #f5f7f4 25%, #f5f7f4 75%, #e9ede9 75%);
@@ -208,9 +212,37 @@ button {
     8px 8px;
 }
 
+.canvas-zoom-wrapper {
+  position: relative;
+}
+
 .canvas-stage {
   position: relative;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+}
+
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.zoom-controls button {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #c9d3c9;
+  background: #fafbfa;
+  border-radius: 4px;
+}
+
+.zoom-controls button:hover {
+  background: #eef3ee;
+}
+
+.zoom-level {
+  font-size: 0.8rem;
+  color: #5b6b5e;
+  min-width: 3.2em;
+  text-align: center;
 }
 
 .snap-guide {
@@ -366,4 +398,259 @@ button {
 
 .property-actions .danger:hover {
   background: #fbeae9;
+}
+
+.binding-preview {
+  font-size: 0.8rem;
+  color: #3a7d44;
+  background: #eef5ee;
+  border-radius: 4px;
+  padding: 0.4rem 0.5rem;
+  margin: 0;
+}
+
+/* Design bar: template tabs + data controls */
+
+.design-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0.75rem;
+  background: #ffffff;
+  border-bottom: 1px solid #dde3dd;
+  flex: 0 0 auto;
+  overflow-x: auto;
+}
+
+.template-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.template-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  border: 1px solid #dde3dd;
+  border-radius: 4px;
+  padding: 0.15rem 0.15rem 0.15rem 0.6rem;
+  background: #fafbfa;
+  flex: 0 0 auto;
+}
+
+.template-tab.active {
+  background: #e4f0e5;
+  border-color: #3a7d44;
+}
+
+.template-tab-label {
+  border: none;
+  background: none;
+  padding: 0.25rem 0.2rem;
+  max-width: 12em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.template-tab-rename {
+  font-size: 13px;
+  padding: 0.2rem 0.3rem;
+  border: 1px solid #3a7d44;
+  border-radius: 3px;
+  width: 8em;
+}
+
+.template-tab-actions {
+  display: flex;
+}
+
+.template-tab-actions button {
+  border: none;
+  background: none;
+  padding: 0.2rem 0.3rem;
+  border-radius: 3px;
+  font-size: 0.85rem;
+}
+
+.template-tab-actions button:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.template-tab-add {
+  flex: 0 0 auto;
+  padding: 0.4rem 0.7rem;
+  border: 1px dashed #c9d3c9;
+  background: none;
+  border-radius: 4px;
+  color: #445044;
+}
+
+.template-tab-add:hover {
+  background: #eef3ee;
+}
+
+.data-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+}
+
+.data-controls > button {
+  padding: 0.4rem 0.7rem;
+  border: 1px solid #c9d3c9;
+  background: #fafbfa;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.data-controls > button:hover {
+  background: #eef3ee;
+}
+
+.data-controls > button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.row-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: #445044;
+  white-space: nowrap;
+}
+
+.row-nav button {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #c9d3c9;
+  background: #fafbfa;
+  border-radius: 4px;
+}
+
+.row-nav button:disabled {
+  opacity: 0.4;
+}
+
+/* Rules modal */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 30, 22, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  background: white;
+  border-radius: 8px;
+  width: min(900px, 92vw);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #dde3dd;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.modal-header button {
+  border: none;
+  background: none;
+  font-size: 1rem;
+  padding: 0.2rem 0.5rem;
+}
+
+.modal-body {
+  padding: 1.25rem;
+  overflow-y: auto;
+}
+
+.modal-body h3 {
+  font-size: 0.85rem;
+  margin: 1.25rem 0 0.5rem;
+}
+
+.rules-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.rules-table th {
+  text-align: left;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #5b6b5e;
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid #dde3dd;
+}
+
+.rules-table td {
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid #eef1ee;
+}
+
+.rules-table input[type='text'] {
+  width: 100%;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid #c9d3c9;
+  border-radius: 4px;
+}
+
+.rules-default-cell {
+  text-align: center;
+}
+
+.rules-preview-table-wrap {
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid #eef1ee;
+  border-radius: 4px;
+}
+
+.rules-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.rules-preview-table th,
+.rules-preview-table td {
+  text-align: left;
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid #eef1ee;
+}
+
+.rules-preview-table th {
+  position: sticky;
+  top: 0;
+  background: #fafbfa;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.03em;
+  color: #5b6b5e;
 }

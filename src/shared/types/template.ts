@@ -60,6 +60,8 @@ export interface Template {
   cardHeightMm: number
   backgroundColor: string
   guides?: LayoutGuides
+  /** Values that select this design when the project's trigger column matches (case/whitespace-insensitive). */
+  triggerValues?: string[]
   elements: CardElement[]
   createdAt: string
   updatedAt: string
@@ -70,9 +72,10 @@ export function createDefaultTemplate(): Template {
   return {
     id: crypto.randomUUID(),
     name: 'Naamloos ontwerp',
-    cardWidthMm: 100,
-    cardHeightMm: 70,
+    cardWidthMm: 210,
+    cardHeightMm: 297,
     backgroundColor: '#ffffff',
+    guides: { count: 3, orientation: 'horizontal' },
     elements: [],
     createdAt: now,
     updatedAt: now

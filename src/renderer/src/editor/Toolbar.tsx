@@ -8,6 +8,10 @@ interface ToolbarProps {
   onRedo: () => void
   canUndo: boolean
   canRedo: boolean
+  zoom: number
+  onZoomIn: () => void
+  onZoomOut: () => void
+  onZoomReset: () => void
 }
 
 function Toolbar({
@@ -19,7 +23,11 @@ function Toolbar({
   onUndo,
   onRedo,
   canUndo,
-  canRedo
+  canRedo,
+  zoom,
+  onZoomIn,
+  onZoomOut,
+  onZoomReset
 }: ToolbarProps): React.JSX.Element {
   return (
     <div className="toolbar">
@@ -38,6 +46,17 @@ function Toolbar({
         </button>
       </div>
       <div className="toolbar-group">
+        <div className="zoom-controls">
+          <button type="button" onClick={onZoomOut} title="Uitzoomen">
+            −
+          </button>
+          <button type="button" className="zoom-level" onClick={onZoomReset} title="Zoom resetten naar 100%">
+            {Math.round(zoom * 100)}%
+          </button>
+          <button type="button" onClick={onZoomIn} title="Inzoomen">
+            +
+          </button>
+        </div>
         <button type="button" onClick={onUndo} disabled={!canUndo} title="Ongedaan maken (Ctrl+Z)">
           ↶ Ongedaan maken
         </button>
