@@ -6,7 +6,7 @@
 // XSS's actual code path is unused — but re-check this pin against newer fabric releases periodically.
 import { Ellipse, FabricObject, Rect, Textbox } from 'fabric'
 import type { CardElement, ElementPatch, ElementType } from '@shared/types/template'
-import { mmToPx, ptToPx, pxToMm } from './units'
+import { editorUnits, mmToPx, ptToPx, pxToMm, type UnitConverters } from './units'
 
 /** Fabric objects are tagged with the element id they represent, so events can be mapped back to the store. */
 export type TaggedFabricObject = FabricObject & { elementId: string; elementType: ElementType }
@@ -15,7 +15,10 @@ export function findObjectByElementId(objects: FabricObject[], id: string): Tagg
   return objects.find((obj) => (obj as TaggedFabricObject).elementId === id) as TaggedFabricObject | undefined
 }
 
-export function buildFabricObject(element: CardElement): TaggedFabricObject {
+/** `units` defaults to the fixed on-screen editor scale; the export renderer passes its own
+ * print-DPI converters so the same element-building logic produces print-accurate pixels. */
+export function buildFabricObject(element: CardElement, units: UnitConverters = editorUnits): TaggedFabricObject {
+  const { mmToPx, ptToPx } = units
   const common = {
     left: mmToPx(element.x),
     top: mmToPx(element.y),

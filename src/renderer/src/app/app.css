@@ -612,7 +612,8 @@ button {
   border-bottom: 1px solid #eef1ee;
 }
 
-.rules-table input[type='text'] {
+.rules-table input[type='text'],
+.rules-table select {
   width: 100%;
   font-family: inherit;
   font-size: 13px;
@@ -653,4 +654,18 @@ button {
   font-size: 0.7rem;
   letter-spacing: 0.03em;
   color: #5b6b5e;
+}
+
+.export-status-modal {
+  width: min(380px, 92vw);
+}
+
+.export-status-modal progress {
+  width: 100%;
+  height: 0.6rem;
+  margin: 0.75rem 0 0.5rem;
+}
+
+.export-filepath {
+  word-break: break-all;
 }

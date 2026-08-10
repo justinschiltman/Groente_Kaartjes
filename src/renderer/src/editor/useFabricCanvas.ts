@@ -26,6 +26,7 @@ export interface UseFabricCanvasResult {
   deleteElement: (id: string) => void
   duplicateElement: (id: string) => void
   updateSelectedProperties: (patch: ElementPatch) => void
+  setElementBinding: (templateId: string, elementId: string, bindingKey: string | undefined) => void
   reorderElement: (id: string, direction: 'up' | 'down' | 'front' | 'back') => void
   selectElement: (id: string | null) => void
   setCardSizeMm: (widthMm: number, heightMm: number) => void
@@ -42,8 +43,8 @@ export function useFabricCanvas(): UseFabricCanvasResult {
   const fabricCanvasRef = useRef<Canvas | null>(null)
   const [guides, setGuides] = useState<SnapGuide[]>([])
   const [canvasSizePx, setCanvasSizePx] = useState(() => {
-    const template = getActiveTemplate()
-    return { width: mmToPx(template.cardWidthMm), height: mmToPx(template.cardHeightMm) }
+    const { cardWidthMm, cardHeightMm } = useProjectStore.getState()
+    return { width: mmToPx(cardWidthMm), height: mmToPx(cardHeightMm) }
   })
 
   // For every bound text element on canvas, shows the current preview row's value (formatted per
@@ -90,20 +91,10 @@ export function useFabricCanvas(): UseFabricCanvasResult {
     applyPreviewData()
   }, [applyPreviewData])
 
-  // Used whenever the ACTIVE template itself changes (switch/add/duplicate/delete): resizes the
-  // canvas to the new template's card size, then rehydrates its elements.
-  const syncToActiveTemplate = useCallback(() => {
-    const canvas = fabricCanvasRef.current
-    const template = getActiveTemplate()
-    const sizePx = { width: mmToPx(template.cardWidthMm), height: mmToPx(template.cardHeightMm) }
-    setCanvasSizePx(sizePx)
-    canvas?.setDimensions(sizePx)
-    rehydrate()
-  }, [rehydrate])
-
   const addText = useCallback(() => {
     const template = getActiveTemplate()
-    const element = createTextElement(template.elements, template.cardWidthMm, template.cardHeightMm)
+    const { cardWidthMm, cardHeightMm } = useProjectStore.getState()
+    const element = createTextElement(template.elements, cardWidthMm, cardHeightMm)
     useProjectStore.getState().addElement(element)
     const canvas = fabricCanvasRef.current
     if (canvas) {
@@ -117,7 +108,8 @@ export function useFabricCanvas(): UseFabricCanvasResult {
 
   const addShape = useCallback((shape: ShapeKind) => {
     const template = getActiveTemplate()
-    const element = createShapeElement(template.elements, template.cardWidthMm, template.cardHeightMm, shape)
+    const { cardWidthMm, cardHeightMm } = useProjectStore.getState()
+    const element = createShapeElement(template.elements, cardWidthMm, cardHeightMm, shape)
     useProjectStore.getState().addElement(element)
     const canvas = fabricCanvasRef.current
     if (canvas) {
@@ -216,35 +208,47 @@ export function useFabricCanvas(): UseFabricCanvasResult {
   const switchTemplate = useCallback(
     (templateId: string) => {
       useProjectStore.getState().setActiveTemplate(templateId)
-      syncToActiveTemplate()
+      rehydrate()
     },
-    [syncToActiveTemplate]
+    [rehydrate]
   )
 
   const addTemplate = useCallback(() => {
     useProjectStore.getState().addTemplate()
-    syncToActiveTemplate()
-  }, [syncToActiveTemplate])
+    rehydrate()
+  }, [rehydrate])
 
   const duplicateTemplate = useCallback(
     (id: string) => {
       useProjectStore.getState().duplicateTemplate(id)
-      syncToActiveTemplate()
+      rehydrate()
     },
-    [syncToActiveTemplate]
+    [rehydrate]
   )
 
   const deleteTemplate = useCallback(
     (id: string) => {
       useProjectStore.getState().deleteTemplate(id)
-      syncToActiveTemplate()
+      rehydrate()
     },
-    [syncToActiveTemplate]
+    [rehydrate]
+  )
+
+  // Patches a text element's bindingKey directly in the store — used by the centralized field-mappings
+  // panel, which edits bindings across potentially non-active templates. Only touches the live canvas
+  // (and re-applies preview data) when the edited template happens to be the active one.
+  const setElementBinding = useCallback(
+    (templateId: string, elementId: string, bindingKey: string | undefined) => {
+      useProjectStore.getState().updateElementInTemplate(templateId, elementId, { bindingKey })
+      if (templateId === useProjectStore.getState().activeTemplateId) {
+        rehydrate()
+      }
+    },
+    [rehydrate]
   )
 
   // Captured once: the mount effect below must only read the size at mount time. Later resizes go
-  // through setCardSizeMm/syncToActiveTemplate's imperative canvas.setDimensions() call, not
-  // through recreating the canvas.
+  // through setCardSizeMm's imperative canvas.setDimensions() call, not through recreating the canvas.
   const initialSizePxRef = useRef(canvasSizePx)
 
   useEffect(() => {
@@ -373,6 +377,7 @@ export function useFabricCanvas(): UseFabricCanvasResult {
     deleteElement,
     duplicateElement,
     updateSelectedProperties,
+    setElementBinding,
     reorderElement,
     selectElement,
     setCardSizeMm,

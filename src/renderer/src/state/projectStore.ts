@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { DEFAULT_CARD_HEIGHT_MM, DEFAULT_CARD_WIDTH_MM } from '@shared/constants'
 import type { CardElement, ElementPatch, LayoutGuides, Template } from '@shared/types/template'
 import { createDefaultTemplate } from '@shared/types/template'
 
@@ -12,6 +13,8 @@ interface PersistedProject {
   activeTemplateId: string
   triggerField: string | null
   defaultTemplateId: string | null
+  cardWidthMm: number
+  cardHeightMm: number
 }
 
 function loadPersistedProject(): PersistedProject {
@@ -20,16 +23,40 @@ function loadPersistedProject(): PersistedProject {
     if (raw) {
       const parsed = JSON.parse(raw)
       if (parsed && Array.isArray(parsed.templates) && parsed.templates.length > 0) {
-        return parsed as PersistedProject
-      }
-      // Migrate the pre-multi-template shape (a single Template stored directly) so earlier work isn't lost.
-      if (parsed && typeof parsed.id === 'string' && Array.isArray(parsed.elements)) {
-        const legacyTemplate = parsed as Template
+        // Migrate from the earlier multi-template shape where card size still lived per-template.
+        const firstWithSize = parsed.templates.find(
+          (t: Template & { cardWidthMm?: number; cardHeightMm?: number }) => t.cardWidthMm && t.cardHeightMm
+        )
+        const cardWidthMm = parsed.cardWidthMm ?? firstWithSize?.cardWidthMm ?? DEFAULT_CARD_WIDTH_MM
+        const cardHeightMm = parsed.cardHeightMm ?? firstWithSize?.cardHeightMm ?? DEFAULT_CARD_HEIGHT_MM
+        const templates = (parsed.templates as Template[]).map((t) => {
+          const clean = { ...t } as Template & { cardWidthMm?: number; cardHeightMm?: number }
+          delete clean.cardWidthMm
+          delete clean.cardHeightMm
+          return clean
+        })
         return {
-          templates: [legacyTemplate],
-          activeTemplateId: legacyTemplate.id,
+          templates,
+          activeTemplateId: parsed.activeTemplateId,
+          triggerField: parsed.triggerField ?? null,
+          defaultTemplateId: parsed.defaultTemplateId ?? null,
+          cardWidthMm,
+          cardHeightMm
+        }
+      }
+      // Migrate the original pre-multi-template shape (a single Template stored directly).
+      if (parsed && typeof parsed.id === 'string' && Array.isArray(parsed.elements)) {
+        const legacy = parsed as Template & { cardWidthMm?: number; cardHeightMm?: number }
+        const clean = { ...legacy } as Template & { cardWidthMm?: number; cardHeightMm?: number }
+        delete clean.cardWidthMm
+        delete clean.cardHeightMm
+        return {
+          templates: [clean],
+          activeTemplateId: legacy.id,
           triggerField: null,
-          defaultTemplateId: legacyTemplate.id
+          defaultTemplateId: legacy.id,
+          cardWidthMm: legacy.cardWidthMm ?? DEFAULT_CARD_WIDTH_MM,
+          cardHeightMm: legacy.cardHeightMm ?? DEFAULT_CARD_HEIGHT_MM
         }
       }
     }
@@ -37,7 +64,14 @@ function loadPersistedProject(): PersistedProject {
     // Corrupted or unreadable persisted state falls back to a fresh project rather than crashing.
   }
   const fresh = createDefaultTemplate()
-  return { templates: [fresh], activeTemplateId: fresh.id, triggerField: null, defaultTemplateId: fresh.id }
+  return {
+    templates: [fresh],
+    activeTemplateId: fresh.id,
+    triggerField: null,
+    defaultTemplateId: fresh.id,
+    cardWidthMm: DEFAULT_CARD_WIDTH_MM,
+    cardHeightMm: DEFAULT_CARD_HEIGHT_MM
+  }
 }
 
 function persist(data: PersistedProject): void {
@@ -57,11 +91,14 @@ interface ProjectState {
   activeTemplateId: string
   triggerField: string | null
   defaultTemplateId: string | null
+  cardWidthMm: number
+  cardHeightMm: number
   undoStack: CardElement[][]
   redoStack: CardElement[][]
 
   addElement: (element: CardElement) => void
   updateElement: (id: string, patch: ElementPatch) => void
+  updateElementInTemplate: (templateId: string, elementId: string, patch: ElementPatch) => void
   removeElement: (id: string) => void
   duplicateElement: (id: string) => string | undefined
   reorderElement: (id: string, direction: 'up' | 'down' | 'front' | 'back') => void
@@ -83,8 +120,8 @@ interface ProjectState {
 
 export const useProjectStore = create<ProjectState>((set, get) => {
   function persistCurrent(): void {
-    const { templates, activeTemplateId, triggerField, defaultTemplateId } = get()
-    persist({ templates, activeTemplateId, triggerField, defaultTemplateId })
+    const { templates, activeTemplateId, triggerField, defaultTemplateId, cardWidthMm, cardHeightMm } = get()
+    persist({ templates, activeTemplateId, triggerField, defaultTemplateId, cardWidthMm, cardHeightMm })
   }
 
   function activeTemplate(): Template | undefined {
@@ -116,6 +153,8 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     activeTemplateId: initial.activeTemplateId,
     triggerField: initial.triggerField,
     defaultTemplateId: initial.defaultTemplateId,
+    cardWidthMm: initial.cardWidthMm,
+    cardHeightMm: initial.cardHeightMm,
     undoStack: [],
     redoStack: [],
 
@@ -123,6 +162,24 @@ export const useProjectStore = create<ProjectState>((set, get) => {
 
     updateElement: (id, patch) =>
       commit((elements) => elements.map((el) => (el.id === id ? ({ ...el, ...patch } as CardElement) : el))),
+
+    // Unlike updateElement (which always targets the active template via commit/undo-stack), this can
+    // patch an element in ANY template — needed by the centralized field-mappings panel, which edits
+    // bindings across the whole project at once. Deliberately bypasses undo (a settings-panel action,
+    // not a canvas edit) and does not touch the live Fabric canvas itself (the caller re-syncs if needed).
+    updateElementInTemplate: (templateId, elementId, patch) => {
+      const { templates } = get()
+      const nextTemplates = templates.map((t) => {
+        if (t.id !== templateId) return t
+        return {
+          ...t,
+          elements: t.elements.map((el) => (el.id === elementId ? ({ ...el, ...patch } as CardElement) : el)),
+          updatedAt: new Date().toISOString()
+        }
+      })
+      set({ templates: nextTemplates })
+      persistCurrent()
+    },
 
     removeElement: (id) => commit((elements) => elements.filter((el) => el.id !== id)),
 
@@ -161,8 +218,11 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         return sorted
       }),
 
+    // Project-wide, not per-template: every design must share one size so the batch export can
+    // stack any of them into any of a page's card slots.
     setCardSize: (widthMm, heightMm) => {
-      updateActiveTemplate((t) => ({ ...t, cardWidthMm: widthMm, cardHeightMm: heightMm, updatedAt: new Date().toISOString() }))
+      set({ cardWidthMm: widthMm, cardHeightMm: heightMm })
+      persistCurrent()
     },
 
     setGuides: (guides) => {

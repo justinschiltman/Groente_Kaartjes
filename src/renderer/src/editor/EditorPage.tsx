@@ -5,6 +5,7 @@ import { useDataStore } from '@renderer/state/dataStore'
 import { useActiveTemplate, useProjectStore } from '@renderer/state/projectStore'
 import CanvasEditor from './CanvasEditor'
 import DesignBar from './DesignBar'
+import FieldMappingsModal from './FieldMappingsModal'
 import LayersPanel from './LayersPanel'
 import PropertyInspector from './PropertyInspector'
 import RulesModal from './RulesModal'
@@ -24,6 +25,7 @@ function EditorPage(): React.JSX.Element {
   const [importingFont, setImportingFont] = useState(false)
   const [importingExcel, setImportingExcel] = useState(false)
   const [rulesOpen, setRulesOpen] = useState(false)
+  const [fieldMappingsOpen, setFieldMappingsOpen] = useState(false)
   const [zoom, setZoom] = useState(1)
 
   const zoomIn = useCallback(() => setZoom((z) => Math.min(ZOOM_MAX, z * ZOOM_STEP)), [])
@@ -44,6 +46,7 @@ function EditorPage(): React.JSX.Element {
     deleteElement,
     duplicateElement,
     updateSelectedProperties,
+    setElementBinding,
     reorderElement,
     selectElement,
     setCardSizeMm,
@@ -100,6 +103,7 @@ function EditorPage(): React.JSX.Element {
         onImportExcel={handleImportExcel}
         importingExcel={importingExcel}
         onOpenRules={() => setRulesOpen(true)}
+        onOpenFieldMappings={() => setFieldMappingsOpen(true)}
       />
       <div className="editor-body">
         <LayersPanel onSelect={selectElement} onReorder={reorderElement} onDelete={deleteElement} />
@@ -119,6 +123,9 @@ function EditorPage(): React.JSX.Element {
         />
       </div>
       {rulesOpen && <RulesModal onClose={() => setRulesOpen(false)} />}
+      {fieldMappingsOpen && (
+        <FieldMappingsModal onClose={() => setFieldMappingsOpen(false)} onSetBinding={setElementBinding} />
+      )}
     </div>
   )
 }

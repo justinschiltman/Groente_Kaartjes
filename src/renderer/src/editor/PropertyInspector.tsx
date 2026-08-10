@@ -4,6 +4,7 @@ import { useDataStore } from '@renderer/state/dataStore'
 import { useEditorUiStore } from '@renderer/state/editorUiStore'
 import { useActiveTemplate, useProjectStore } from '@renderer/state/projectStore'
 import { resolveBoundText } from '@shared/dataBinding'
+import { DEFAULT_CARD_HEIGHT_MM, DEFAULT_CARD_WIDTH_MM } from '@shared/constants'
 import type { CardElement, ElementPatch, LayoutGuides } from '@shared/types/template'
 
 const WEB_SAFE_FONTS = ['Arial', 'Helvetica', 'Georgia', 'Times New Roman', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Courier New']
@@ -39,42 +40,33 @@ function PropertyInspector({ onUpdate, onDelete, onDuplicate, onSetCardSize }: P
   )
 }
 
-const SIZE_PRESETS: { label: string; widthMm: number; heightMm: number }[] = [
-  { label: 'A4 staand', widthMm: 210, heightMm: 297 },
-  { label: 'A4 liggend', widthMm: 297, heightMm: 210 },
-  { label: 'A6 staand', widthMm: 105, heightMm: 148 }
-]
-
 function CardSettingsPanel({
   onSetCardSize
 }: {
   onSetCardSize: (widthMm: number, heightMm: number) => void
 }): React.JSX.Element {
   const activeTemplate = useActiveTemplate()
-  const { cardWidthMm, cardHeightMm, guides } = activeTemplate
+  const guides = activeTemplate.guides
+  const cardWidthMm = useProjectStore((state) => state.cardWidthMm)
+  const cardHeightMm = useProjectStore((state) => state.cardHeightMm)
   const setGuides = useProjectStore((state) => state.setGuides)
 
   return (
     <div className="property-inspector">
       <h2>Kaartinstellingen</h2>
-      <p className="empty-hint">Selecteer een element om de eigenschappen te bewerken, of pas hier de kaart zelf aan.</p>
+      <p className="empty-hint">
+        Selecteer een element om de eigenschappen te bewerken, of pas hier de kaart zelf aan. Deze grootte geldt voor
+        elk ontwerp — bij het exporteren komen er steeds 3 kaarten onder elkaar op één A4-pagina.
+      </p>
 
       <div className="property-form">
         <div className="field-row">
           <NumberField label="Breedte (mm)" value={cardWidthMm} onCommit={(w) => onSetCardSize(w, cardHeightMm)} />
           <NumberField label="Hoogte (mm)" value={cardHeightMm} onCommit={(h) => onSetCardSize(cardWidthMm, h)} />
         </div>
-        <button type="button" onClick={() => onSetCardSize(cardHeightMm, cardWidthMm)}>
-          ⇄ Rechtop zetten / liggend maken
+        <button type="button" onClick={() => onSetCardSize(DEFAULT_CARD_WIDTH_MM, DEFAULT_CARD_HEIGHT_MM)}>
+          Standaardgrootte (⅓ A4 — {DEFAULT_CARD_WIDTH_MM} × {Math.round(DEFAULT_CARD_HEIGHT_MM)} mm)
         </button>
-
-        <div className="field-row toggle-row">
-          {SIZE_PRESETS.map((preset) => (
-            <button key={preset.label} type="button" className="toggle" onClick={() => onSetCardSize(preset.widthMm, preset.heightMm)}>
-              {preset.label}
-            </button>
-          ))}
-        </div>
 
         <hr />
 

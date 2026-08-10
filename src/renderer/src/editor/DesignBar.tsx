@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useDataStore } from '@renderer/state/dataStore'
 import { useProjectStore } from '@renderer/state/projectStore'
+import ExportButton from '../export/ExportButton'
 import type { Template } from '@shared/types/template'
 
 interface DesignBarProps {
@@ -11,6 +12,7 @@ interface DesignBarProps {
   onImportExcel: () => void
   importingExcel: boolean
   onOpenRules: () => void
+  onOpenFieldMappings: () => void
 }
 
 function DesignBar({
@@ -20,7 +22,8 @@ function DesignBar({
   onDeleteTemplate,
   onImportExcel,
   importingExcel,
-  onOpenRules
+  onOpenRules,
+  onOpenFieldMappings
 }: DesignBarProps): React.JSX.Element {
   const templates = useProjectStore((state) => state.templates)
   const activeTemplateId = useProjectStore((state) => state.activeTemplateId)
@@ -71,9 +74,13 @@ function DesignBar({
             </button>
           </div>
         )}
+        <button type="button" onClick={onOpenFieldMappings}>
+          Veldkoppelingen
+        </button>
         <button type="button" onClick={onOpenRules}>
           Regels
         </button>
+        <ExportButton />
       </div>
     </div>
   )
