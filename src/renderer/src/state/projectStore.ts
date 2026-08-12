@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { DEFAULT_CARD_HEIGHT_MM, DEFAULT_CARD_WIDTH_MM } from '@shared/constants'
-import type { CardElement, ElementPatch, LayoutGuides, Template } from '@shared/types/template'
+import type { CardElement, ElementPatch, Template } from '@shared/types/template'
 import { createDefaultTemplate } from '@shared/types/template'
 
 const UNDO_LIMIT = 50
@@ -103,7 +103,6 @@ interface ProjectState {
   duplicateElement: (id: string) => string | undefined
   reorderElement: (id: string, direction: 'up' | 'down' | 'front' | 'back') => void
   setCardSize: (widthMm: number, heightMm: number) => void
-  setGuides: (guides: LayoutGuides | undefined) => void
 
   addTemplate: () => string
   duplicateTemplate: (id: string) => string | undefined
@@ -223,10 +222,6 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     setCardSize: (widthMm, heightMm) => {
       set({ cardWidthMm: widthMm, cardHeightMm: heightMm })
       persistCurrent()
-    },
-
-    setGuides: (guides) => {
-      updateActiveTemplate((t) => ({ ...t, guides, updatedAt: new Date().toISOString() }))
     },
 
     addTemplate: () => {

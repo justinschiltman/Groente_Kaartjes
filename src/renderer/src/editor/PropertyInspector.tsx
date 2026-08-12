@@ -5,7 +5,7 @@ import { useEditorUiStore } from '@renderer/state/editorUiStore'
 import { useActiveTemplate, useProjectStore } from '@renderer/state/projectStore'
 import { resolveBoundText } from '@shared/dataBinding'
 import { DEFAULT_CARD_HEIGHT_MM, DEFAULT_CARD_WIDTH_MM } from '@shared/constants'
-import type { CardElement, ElementPatch, LayoutGuides } from '@shared/types/template'
+import type { CardElement, ElementPatch } from '@shared/types/template'
 
 const WEB_SAFE_FONTS = ['Arial', 'Helvetica', 'Georgia', 'Times New Roman', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Courier New']
 
@@ -45,11 +45,8 @@ function CardSettingsPanel({
 }: {
   onSetCardSize: (widthMm: number, heightMm: number) => void
 }): React.JSX.Element {
-  const activeTemplate = useActiveTemplate()
-  const guides = activeTemplate.guides
   const cardWidthMm = useProjectStore((state) => state.cardWidthMm)
   const cardHeightMm = useProjectStore((state) => state.cardHeightMm)
-  const setGuides = useProjectStore((state) => state.setGuides)
 
   return (
     <div className="property-inspector">
@@ -67,37 +64,6 @@ function CardSettingsPanel({
         <button type="button" onClick={() => onSetCardSize(DEFAULT_CARD_WIDTH_MM, DEFAULT_CARD_HEIGHT_MM)}>
           Standaardgrootte (⅓ A4 — {DEFAULT_CARD_WIDTH_MM} × {Math.round(DEFAULT_CARD_HEIGHT_MM)} mm)
         </button>
-
-        <hr />
-
-        <label className="field checkbox-field">
-          <input
-            type="checkbox"
-            checked={Boolean(guides)}
-            onChange={(e) => setGuides(e.target.checked ? { count: 3, orientation: 'horizontal' } : undefined)}
-          />
-          <span>Hulplijnen tonen (niet afgedrukt)</span>
-        </label>
-
-        {guides && (
-          <div className="field-row">
-            <NumberField
-              label="Aantal delen"
-              value={guides.count}
-              onCommit={(count) => setGuides({ ...guides, count: Math.max(2, Math.round(count)) })}
-            />
-            <label className="field">
-              <span>Richting</span>
-              <select
-                value={guides.orientation}
-                onChange={(e) => setGuides({ ...guides, orientation: e.target.value as LayoutGuides['orientation'] })}
-              >
-                <option value="horizontal">Horizontaal</option>
-                <option value="vertical">Verticaal</option>
-              </select>
-            </label>
-          </div>
-        )}
       </div>
     </div>
   )

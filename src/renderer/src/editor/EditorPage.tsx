@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 import { importFonts as importFontsAndRegister } from '@renderer/assets/fontLoader'
 import { useAssetStore } from '@renderer/state/assetStore'
 import { useDataStore } from '@renderer/state/dataStore'
-import { useActiveTemplate, useProjectStore } from '@renderer/state/projectStore'
+import { useProjectStore } from '@renderer/state/projectStore'
 import CanvasEditor from './CanvasEditor'
 import DesignBar from './DesignBar'
 import FieldMappingsModal from './FieldMappingsModal'
@@ -19,7 +19,6 @@ const ZOOM_STEP = 1.25
 function EditorPage(): React.JSX.Element {
   const canUndo = useProjectStore((state) => state.undoStack.length > 0)
   const canRedo = useProjectStore((state) => state.redoStack.length > 0)
-  const guides = useActiveTemplate().guides
   const setFontFamilies = useAssetStore((state) => state.setFontFamilies)
   const setImportedSheet = useDataStore((state) => state.setImportedSheet)
   const [importingFont, setImportingFont] = useState(false)
@@ -111,7 +110,6 @@ function EditorPage(): React.JSX.Element {
           canvasElRef={canvasElRef}
           canvasSizePx={canvasSizePx}
           snapGuides={snapGuides}
-          layoutGuides={guides}
           zoom={zoom}
           onWheel={handleWheelZoom}
         />

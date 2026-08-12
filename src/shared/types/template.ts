@@ -47,19 +47,12 @@ export type CardElement = TextElement | ImageElement | ShapeElement
 /** All fields from every element type, each optional — lets property-editing UI patch whichever type is selected. */
 export type ElementPatch = Partial<TextElement> & Partial<ImageElement> & Partial<ShapeElement>
 
-export interface LayoutGuides {
-  /** Non-printing lines that split the card into this many equal bands — a layout aid only, never exported. */
-  count: number
-  orientation: 'horizontal' | 'vertical'
-}
-
 export interface Template {
   id: string
   name: string
   /** Card dimensions are project-wide (see projectStore), not per-template — every design must
    * share one size so any of them can drop into any of the 3 slots on a stacked A4 export page. */
   backgroundColor: string
-  guides?: LayoutGuides
   /** Values that select this design when the project's trigger column matches (case/whitespace-insensitive). */
   triggerValues?: string[]
   elements: CardElement[]

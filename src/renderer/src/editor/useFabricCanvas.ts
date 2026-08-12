@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Canvas } from 'fabric'
 import { getActiveTemplate, useProjectStore } from '@renderer/state/projectStore'
 import { useDataStore } from '@renderer/state/dataStore'
@@ -251,7 +251,10 @@ export function useFabricCanvas(): UseFabricCanvasResult {
   // through setCardSizeMm's imperative canvas.setDimensions() call, not through recreating the canvas.
   const initialSizePxRef = useRef(canvasSizePx)
 
-  useEffect(() => {
+  // useLayoutEffect (not useEffect): the canvas element has no width/height attributes of its own
+  // (Fabric owns those, see CanvasEditor.tsx) — sizing it here needs to happen before the browser
+  // paints, or the default 300x150 canvas would flash for a frame.
+  useLayoutEffect(() => {
     const el = canvasElRef.current
     if (!el) return
 

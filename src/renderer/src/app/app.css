@@ -319,23 +319,6 @@ button {
   text-transform: lowercase;
 }
 
-.checkbox-field {
-  flex-direction: row;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.checkbox-field input {
-  width: auto;
-}
-
-.property-form hr {
-  border: none;
-  border-top: 1px solid #dde3dd;
-  margin: 0.2rem 0;
-  width: 100%;
-}
-
 .property-form > button {
   padding: 0.4rem 0.7rem;
   border: 1px solid #c9d3c9;
@@ -345,26 +328,6 @@ button {
 
 .property-form > button:hover {
   background: #eef3ee;
-}
-
-.layout-guide {
-  position: absolute;
-  border: 0 dashed #3a7d44;
-  opacity: 0.55;
-  pointer-events: none;
-  z-index: 5;
-}
-
-.layout-guide-horizontal {
-  left: 0;
-  right: 0;
-  border-top-width: 1.5px;
-}
-
-.layout-guide-vertical {
-  top: 0;
-  bottom: 0;
-  border-left-width: 1.5px;
 }
 
 .toggle-row {
