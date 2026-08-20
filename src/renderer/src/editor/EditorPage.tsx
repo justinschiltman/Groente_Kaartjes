@@ -29,7 +29,7 @@ function EditorPage(): React.JSX.Element {
 
   const zoomIn = useCallback(() => setZoom((z) => Math.min(ZOOM_MAX, z * ZOOM_STEP)), [])
   const zoomOut = useCallback(() => setZoom((z) => Math.max(ZOOM_MIN, z / ZOOM_STEP)), [])
-  const zoomReset = useCallback(() => setZoom(1), [])
+  const setZoomExact = useCallback((next: number) => setZoom(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, next))), [])
 
   const handleWheelZoom = useCallback((event: React.WheelEvent) => {
     if (!event.ctrlKey && !event.metaKey) return
@@ -38,6 +38,7 @@ function EditorPage(): React.JSX.Element {
   }, [])
   const {
     canvasElRef,
+    viewportElRef,
     guides: snapGuides,
     canvasSizePx,
     addText,
@@ -90,9 +91,11 @@ function EditorPage(): React.JSX.Element {
         canUndo={canUndo}
         canRedo={canRedo}
         zoom={zoom}
+        zoomMin={ZOOM_MIN}
+        zoomMax={ZOOM_MAX}
         onZoomIn={zoomIn}
         onZoomOut={zoomOut}
-        onZoomReset={zoomReset}
+        onSetZoom={setZoomExact}
       />
       <DesignBar
         onSwitchTemplate={switchTemplate}
@@ -108,6 +111,7 @@ function EditorPage(): React.JSX.Element {
         <LayersPanel onSelect={selectElement} onReorder={reorderElement} onDelete={deleteElement} />
         <CanvasEditor
           canvasElRef={canvasElRef}
+          viewportElRef={viewportElRef}
           canvasSizePx={canvasSizePx}
           snapGuides={snapGuides}
           zoom={zoom}

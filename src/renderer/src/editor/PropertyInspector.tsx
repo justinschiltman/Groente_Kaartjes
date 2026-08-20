@@ -192,7 +192,15 @@ function PropertyForm({ element, onUpdate }: { element: CardElement; onUpdate: (
       </div>
       <div className="field-row">
         <NumberField label="Breedte (mm)" value={element.width} onCommit={(width) => onUpdate({ width })} />
-        <NumberField label="Hoogte (mm)" value={element.height} onCommit={(height) => onUpdate({ height })} />
+        {element.type === 'text' ? (
+          <NumberField
+            label="Verticale rek (%)"
+            value={(element.verticalScale ?? 1) * 100}
+            onCommit={(pct) => onUpdate({ verticalScale: Math.max(0.1, pct / 100) })}
+          />
+        ) : (
+          <NumberField label="Hoogte (mm)" value={element.height} onCommit={(height) => onUpdate({ height })} />
+        )}
       </div>
       <NumberField label="Rotatie (graden)" value={element.rotation} onCommit={(rotation) => onUpdate({ rotation })} />
 

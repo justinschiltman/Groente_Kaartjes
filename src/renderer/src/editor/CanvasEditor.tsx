@@ -3,15 +3,16 @@ import type { SnapGuide } from './snapping'
 
 interface CanvasEditorProps {
   canvasElRef: RefObject<HTMLCanvasElement | null>
+  viewportElRef: RefObject<HTMLDivElement | null>
   canvasSizePx: { width: number; height: number }
   snapGuides: SnapGuide[]
   zoom: number
   onWheel?: (event: React.WheelEvent) => void
 }
 
-function CanvasEditor({ canvasElRef, canvasSizePx, snapGuides, zoom, onWheel }: CanvasEditorProps): React.JSX.Element {
+function CanvasEditor({ canvasElRef, viewportElRef, canvasSizePx, snapGuides, zoom, onWheel }: CanvasEditorProps): React.JSX.Element {
   return (
-    <div className="canvas-viewport" onWheel={onWheel}>
+    <div className="canvas-viewport" ref={viewportElRef} onWheel={onWheel}>
       <div
         className="canvas-zoom-wrapper"
         style={{ width: canvasSizePx.width * zoom, height: canvasSizePx.height * zoom }}

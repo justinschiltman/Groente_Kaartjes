@@ -222,6 +222,7 @@ button {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+  cursor: grab;
   /* Grid + place-items (not flexbox align/justify-content) so content taller/wider than the
      viewport stays fully scrollable instead of the overflow becoming unreachable — a well-known
      flexbox-centering-in-a-scroll-container issue. This was the "clipped by the top bar" bug. */
@@ -263,11 +264,23 @@ button {
   background: #eef3ee;
 }
 
-.zoom-level {
+.zoom-field {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
   font-size: 0.8rem;
   color: #5b6b5e;
-  min-width: 3.2em;
-  text-align: center;
+}
+
+.zoom-field input {
+  font-family: inherit;
+  font-size: 0.8rem;
+  color: #5b6b5e;
+  width: 2.6em;
+  text-align: right;
+  padding: 0.35rem 0.2rem;
+  border: 1px solid #c9d3c9;
+  border-radius: 4px;
 }
 
 .snap-guide {

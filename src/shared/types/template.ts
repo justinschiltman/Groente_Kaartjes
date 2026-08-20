@@ -23,6 +23,9 @@ export interface TextElement extends BaseElement {
   color: string
   align: 'left' | 'center' | 'right'
   formatAs: 'text' | 'currency' | 'number'
+  /** Stretches glyphs vertically independent of the font's normal proportions (Fabric's scaleY
+   * transform) — separate from width, which only ever reflows text, never distorts it. 1 = normal. */
+  verticalScale?: number
 }
 
 export interface ImageElement extends BaseElement {

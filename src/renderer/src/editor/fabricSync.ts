@@ -38,7 +38,11 @@ export function buildFabricObject(element: CardElement, units: UnitConverters = 
       fontStyle: element.fontStyle,
       fill: element.color,
       textAlign: element.align,
-      splitByGrapheme: false
+      splitByGrapheme: false,
+      // A real scale transform, not a height — Textbox's own height is always derived from content/
+      // font/width, so this is what actually stretches/squashes the glyphs on purpose (see
+      // readGeometryPatch below for why this is never baked into height like Rect/Ellipse are).
+      scaleY: element.verticalScale ?? 1
     })
   } else if (element.type === 'shape' && element.shape === 'rect') {
     const radiusPx = element.cornerRadius ? mmToPx(element.cornerRadius) : 0
@@ -75,6 +79,25 @@ export function buildFabricObject(element: CardElement, units: UnitConverters = 
 export function readGeometryPatch(obj: FabricObject): ElementPatch {
   const scaleX = obj.scaleX ?? 1
   const scaleY = obj.scaleY ?? 1
+
+  if (obj instanceof Textbox) {
+    // Unlike Rect/Ellipse, a Textbox's own .height is never a free dimension — Fabric recomputes it
+    // from content/font/width, so baking scaleY into it wouldn't visually stretch anything (and would
+    // fight that recomputation). scaleX is still baked into width (Fabric's own side-handle drag
+    // already reflows via .width directly, so scaleX is normally already 1 here; a corner drag is the
+    // one case that can leave it non-1). scaleY is kept as-is: it's the deliberate glyph-distortion
+    // control, reported as verticalScale instead of height.
+    const widthPx = (obj.width ?? 0) * scaleX
+    obj.set({ width: widthPx, scaleX: 1 })
+    obj.setCoords()
+    return {
+      x: pxToMm(obj.left ?? 0),
+      y: pxToMm(obj.top ?? 0),
+      width: pxToMm(widthPx),
+      rotation: obj.angle ?? 0,
+      verticalScale: scaleY
+    }
+  }
 
   let widthPx: number
   let heightPx: number
@@ -117,7 +140,9 @@ export function applyPatchToFabricObject(obj: TaggedFabricObject, patch: Element
     if (obj instanceof Ellipse) updates.rx = mmToPx(patch.width) / 2
     else updates.width = mmToPx(patch.width)
   }
-  if (patch.height !== undefined) {
+  // Textbox height is excluded here on purpose — see readGeometryPatch. It's never a free dimension
+  // for text, so patching it directly would just fight Fabric's own content-driven recomputation.
+  if (patch.height !== undefined && !(obj instanceof Textbox)) {
     if (obj instanceof Ellipse) updates.ry = mmToPx(patch.height) / 2
     else updates.height = mmToPx(patch.height)
   }
@@ -130,6 +155,7 @@ export function applyPatchToFabricObject(obj: TaggedFabricObject, patch: Element
     if (patch.fontWeight !== undefined) updates.fontWeight = patch.fontWeight
     if (patch.fontStyle !== undefined) updates.fontStyle = patch.fontStyle
     if (patch.align !== undefined) updates.textAlign = patch.align
+    if (patch.verticalScale !== undefined) updates.scaleY = patch.verticalScale
   } else {
     if (patch.fill !== undefined) updates.fill = patch.fill
     if (patch.stroke !== undefined) updates.stroke = patch.stroke

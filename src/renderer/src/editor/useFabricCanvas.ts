@@ -20,6 +20,7 @@ import { mmToPx } from './units'
 
 export interface UseFabricCanvasResult {
   canvasElRef: React.RefObject<HTMLCanvasElement | null>
+  viewportElRef: React.RefObject<HTMLDivElement | null>
   guides: SnapGuide[]
   canvasSizePx: { width: number; height: number }
   addText: () => void
@@ -41,6 +42,7 @@ export interface UseFabricCanvasResult {
 
 export function useFabricCanvas(): UseFabricCanvasResult {
   const canvasElRef = useRef<HTMLCanvasElement>(null)
+  const viewportElRef = useRef<HTMLDivElement>(null)
   const fabricCanvasRef = useRef<Canvas | null>(null)
   const [guides, setGuides] = useState<SnapGuide[]>([])
   const [canvasSizePx, setCanvasSizePx] = useState(() => {
@@ -264,7 +266,8 @@ export function useFabricCanvas(): UseFabricCanvasResult {
       width: initialSizePxRef.current.width,
       height: initialSizePxRef.current.height,
       selection: false,
-      preserveObjectStacking: true
+      preserveObjectStacking: true,
+      defaultCursor: 'grab'
     })
     fabricCanvasRef.current = canvas
     rehydrate()
@@ -320,6 +323,37 @@ export function useFabricCanvas(): UseFabricCanvasResult {
 
     canvas.on('mouse:up', () => setGuides([]))
 
+    // Drag-to-pan: left-drag on empty canvas space, or middle-drag anywhere (even over an object) —
+    // scoped to these two cases specifically so it never competes with Fabric's own click-to-select
+    // or drag-to-move-an-object interactions, which only ever start on a left-click that hits a target.
+    let panOrigin: { x: number; y: number; scrollLeft: number; scrollTop: number } | null = null
+
+    const handlePanMove = (event: MouseEvent): void => {
+      const viewport = viewportElRef.current
+      if (!panOrigin || !viewport) return
+      viewport.scrollLeft = panOrigin.scrollLeft - (event.clientX - panOrigin.x)
+      viewport.scrollTop = panOrigin.scrollTop - (event.clientY - panOrigin.y)
+    }
+    const handlePanEnd = (): void => {
+      panOrigin = null
+      window.removeEventListener('mousemove', handlePanMove)
+      window.removeEventListener('mouseup', handlePanEnd)
+      canvas.defaultCursor = 'grab'
+      canvas.setCursor('grab')
+    }
+    canvas.on('mouse:down', (opt) => {
+      const event = opt.e as MouseEvent
+      const isPannableClick = event.button === 1 || (event.button === 0 && !opt.target)
+      const viewport = viewportElRef.current
+      if (!isPannableClick || !viewport) return
+      event.preventDefault()
+      panOrigin = { x: event.clientX, y: event.clientY, scrollLeft: viewport.scrollLeft, scrollTop: viewport.scrollTop }
+      canvas.defaultCursor = 'grabbing'
+      canvas.setCursor('grabbing')
+      window.addEventListener('mousemove', handlePanMove)
+      window.addEventListener('mouseup', handlePanEnd)
+    })
+
     canvas.on('text:editing:exited', (e) => {
       const obj = e.target as unknown as TaggedFabricObject
       if (!obj.elementId) return
@@ -355,6 +389,8 @@ export function useFabricCanvas(): UseFabricCanvasResult {
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('mousemove', handlePanMove)
+      window.removeEventListener('mouseup', handlePanEnd)
       void canvas.dispose()
       fabricCanvasRef.current = null
     }
@@ -375,6 +411,7 @@ export function useFabricCanvas(): UseFabricCanvasResult {
 
   return {
     canvasElRef,
+    viewportElRef,
     guides,
     canvasSizePx,
     addText,
