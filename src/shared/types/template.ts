@@ -40,6 +40,9 @@ export interface ShapeElement extends BaseElement {
   type: 'shape'
   shape: ShapeKind
   fill: string
+  /** When true, the shape renders with no fill (outline only) regardless of the stored fill color
+   * — kept separate from fill itself so toggling this off restores the last-picked color. */
+  transparentFill?: boolean
   stroke?: string
   strokeWidth: number
   cornerRadius?: number

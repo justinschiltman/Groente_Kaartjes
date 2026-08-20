@@ -50,7 +50,7 @@ export function buildFabricObject(element: CardElement, units: UnitConverters = 
       ...common,
       width: mmToPx(element.width),
       height: mmToPx(element.height),
-      fill: element.fill,
+      fill: element.transparentFill ? 'transparent' : element.fill,
       stroke: element.stroke,
       strokeWidth: mmToPx(element.strokeWidth),
       rx: radiusPx,
@@ -61,7 +61,7 @@ export function buildFabricObject(element: CardElement, units: UnitConverters = 
       ...common,
       rx: mmToPx(element.width) / 2,
       ry: mmToPx(element.height) / 2,
-      fill: element.fill,
+      fill: element.transparentFill ? 'transparent' : element.fill,
       stroke: element.stroke,
       strokeWidth: mmToPx(element.strokeWidth)
     })
@@ -160,6 +160,9 @@ export function applyPatchToFabricObject(obj: TaggedFabricObject, patch: Element
     if (patch.fill !== undefined) updates.fill = patch.fill
     if (patch.stroke !== undefined) updates.stroke = patch.stroke
     if (patch.strokeWidth !== undefined) updates.strokeWidth = mmToPx(patch.strokeWidth)
+    // Checked after patch.fill so it wins when both arrive together (unchecking "transparent" always
+    // sends the real color alongside transparentFill: false, so that still applies correctly).
+    if (patch.transparentFill === true) updates.fill = 'transparent'
     if (patch.cornerRadius !== undefined && obj instanceof Rect) {
       updates.rx = mmToPx(patch.cornerRadius)
       updates.ry = mmToPx(patch.cornerRadius)

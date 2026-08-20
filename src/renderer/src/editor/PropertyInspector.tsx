@@ -113,9 +113,10 @@ interface ColorFieldProps {
   label: string
   value: string
   onCommit: (value: string) => void
+  disabled?: boolean
 }
 
-function ColorField({ label, value, onCommit }: ColorFieldProps): React.JSX.Element {
+function ColorField({ label, value, onCommit, disabled }: ColorFieldProps): React.JSX.Element {
   const [hexText, setHexText] = useState(value)
 
   useEffect(() => {
@@ -134,6 +135,7 @@ function ColorField({ label, value, onCommit }: ColorFieldProps): React.JSX.Elem
         <input
           type="color"
           value={HEX_COLOR_PATTERN.test(hexText) ? hexText : value}
+          disabled={disabled}
           onChange={(e) => {
             setHexText(e.target.value)
             onCommit(e.target.value)
@@ -144,6 +146,7 @@ function ColorField({ label, value, onCommit }: ColorFieldProps): React.JSX.Elem
           className="hex-input"
           value={hexText}
           spellCheck={false}
+          disabled={disabled}
           onChange={(e) => setHexText(e.target.value)}
           onBlur={commitHexText}
           onKeyDown={(e) => {
@@ -317,7 +320,22 @@ function ShapeFields({
 }): React.JSX.Element {
   return (
     <>
-      <ColorField label="Vulkleur" value={element.fill} onCommit={(fill) => onUpdate({ fill })} />
+      <ColorField
+        label="Vulkleur"
+        value={element.fill}
+        disabled={element.transparentFill}
+        onCommit={(fill) => onUpdate({ fill })}
+      />
+      <label className="field checkbox-field">
+        <input
+          type="checkbox"
+          checked={Boolean(element.transparentFill)}
+          onChange={(e) =>
+            onUpdate(e.target.checked ? { transparentFill: true } : { transparentFill: false, fill: element.fill })
+          }
+        />
+        <span>Transparant (geen vulling)</span>
+      </label>
       <ColorField label="Lijnkleur" value={element.stroke ?? '#000000'} onCommit={(stroke) => onUpdate({ stroke })} />
       <div className="field-row">
         <NumberField

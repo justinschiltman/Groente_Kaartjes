@@ -352,9 +352,23 @@ button {
   width: 2.4rem;
 }
 
+.color-field input:disabled {
+  opacity: 0.4;
+}
+
 .hex-input {
   font-family: 'Consolas', 'Courier New', monospace;
   text-transform: lowercase;
+}
+
+.checkbox-field {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.checkbox-field input {
+  width: auto;
 }
 
 .property-form > button {
