@@ -187,6 +187,17 @@ function FontFamilyField({ value, onCommit }: { value: string; onCommit: (value:
 }
 
 function PropertyForm({ element, onUpdate }: { element: CardElement; onUpdate: (patch: ElementPatch) => void }): React.JSX.Element {
+  // Images keep their aspect ratio when resized via the fields too (matching the canvas handles,
+  // which only allow proportional resizing) — editing one dimension scales the other to match.
+  function commitWidth(width: number): void {
+    if (element.type === 'image') onUpdate({ width, height: (width * element.height) / element.width })
+    else onUpdate({ width })
+  }
+  function commitHeight(height: number): void {
+    if (element.type === 'image') onUpdate({ height, width: (height * element.width) / element.height })
+    else onUpdate({ height })
+  }
+
   return (
     <div className="property-form">
       <div className="field-row">
@@ -194,7 +205,7 @@ function PropertyForm({ element, onUpdate }: { element: CardElement; onUpdate: (
         <NumberField label="Y (mm)" value={element.y} onCommit={(y) => onUpdate({ y })} />
       </div>
       <div className="field-row">
-        <NumberField label="Breedte (mm)" value={element.width} onCommit={(width) => onUpdate({ width })} />
+        <NumberField label="Breedte (mm)" value={element.width} onCommit={commitWidth} />
         {element.type === 'text' ? (
           <NumberField
             label="Verticale rek (%)"
@@ -202,7 +213,7 @@ function PropertyForm({ element, onUpdate }: { element: CardElement; onUpdate: (
             onCommit={(pct) => onUpdate({ verticalScale: Math.max(0.1, pct / 100) })}
           />
         ) : (
-          <NumberField label="Hoogte (mm)" value={element.height} onCommit={(height) => onUpdate({ height })} />
+          <NumberField label="Hoogte (mm)" value={element.height} onCommit={commitHeight} />
         )}
       </div>
       <NumberField label="Rotatie (graden)" value={element.rotation} onCommit={(rotation) => onUpdate({ rotation })} />

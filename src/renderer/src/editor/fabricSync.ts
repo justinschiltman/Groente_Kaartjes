@@ -87,6 +87,10 @@ export function buildFabricObject(element: CardElement, units: UnitConverters = 
         strokeDashArray: [6, 4]
       })
     }
+    // Edge handles (mt/mb/ml/mr) always scale a single axis, which would stretch/distort the
+    // image. Only the corner handles remain, which scale both axes together by default (Fabric's
+    // canvas.uniformScaling), so resizing an image can only ever make it bigger or smaller.
+    obj.setControlsVisibility({ ml: false, mr: false, mt: false, mb: false })
   } else {
     throw new Error(`Onbekend elementtype: ${(element as CardElement).type}`)
   }
