@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Canvas } from 'fabric'
+import type { ImageAsset } from '@renderer/assets/imageLoader'
 import { getActiveTemplate, useProjectStore } from '@renderer/state/projectStore'
+import { useAssetStore } from '@renderer/state/assetStore'
 import { useDataStore } from '@renderer/state/dataStore'
 import { useEditorUiStore } from '@renderer/state/editorUiStore'
 import { mergeCurrentProducts } from '@renderer/state/mergedData'
 import { resolveBoundText } from '@shared/dataBinding'
 import type { ElementPatch, ShapeKind } from '@shared/types/template'
-import { createShapeElement, createTextElement } from './elementFactory'
+import { createImageElement, createShapeElement, createTextElement } from './elementFactory'
 import {
   applyPatchToFabricObject,
   buildFabricObject,
@@ -25,6 +27,7 @@ export interface UseFabricCanvasResult {
   canvasSizePx: { width: number; height: number }
   addText: () => void
   addShape: (shape: ShapeKind) => void
+  addImage: (asset: ImageAsset) => void
   deleteElement: (id: string) => void
   duplicateElement: (id: string) => void
   updateSelectedProperties: (patch: ElementPatch) => void
@@ -114,6 +117,25 @@ export function useFabricCanvas(): UseFabricCanvasResult {
     const template = getActiveTemplate()
     const { cardWidthMm, cardHeightMm } = useProjectStore.getState()
     const element = createShapeElement(template.elements, cardWidthMm, cardHeightMm, shape)
+    useProjectStore.getState().addElement(element)
+    const canvas = fabricCanvasRef.current
+    if (canvas) {
+      const obj = buildFabricObject(element)
+      canvas.add(obj)
+      canvas.setActiveObject(obj)
+      canvas.requestRenderAll()
+    }
+    useEditorUiStore.getState().select(element.id)
+  }, [])
+
+  const addImage = useCallback((asset: ImageAsset) => {
+    const template = getActiveTemplate()
+    const { cardWidthMm, cardHeightMm } = useProjectStore.getState()
+    const element = createImageElement(template.elements, cardWidthMm, cardHeightMm, {
+      id: asset.id,
+      naturalWidth: asset.imgEl.naturalWidth,
+      naturalHeight: asset.imgEl.naturalHeight
+    })
     useProjectStore.getState().addElement(element)
     const canvas = fabricCanvasRef.current
     if (canvas) {
@@ -409,6 +431,15 @@ export function useFabricCanvas(): UseFabricCanvasResult {
     })
   }, [applyPreviewData])
 
+  // Images can finish decoding asynchronously after mount (boot-time load, or an import while the
+  // canvas is already showing). Any element referencing a newly-resolved assetId is still rendering
+  // its dashed placeholder until the whole template is rebuilt from the store.
+  useEffect(() => {
+    return useAssetStore.subscribe((state, prevState) => {
+      if (state.imageAssets !== prevState.imageAssets) rehydrate()
+    })
+  }, [rehydrate])
+
   return {
     canvasElRef,
     viewportElRef,
@@ -416,6 +447,7 @@ export function useFabricCanvas(): UseFabricCanvasResult {
     canvasSizePx,
     addText,
     addShape,
+    addImage,
     deleteElement,
     duplicateElement,
     updateSelectedProperties,

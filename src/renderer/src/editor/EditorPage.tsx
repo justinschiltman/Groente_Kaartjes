@@ -6,6 +6,7 @@ import { useProjectStore } from '@renderer/state/projectStore'
 import CanvasEditor from './CanvasEditor'
 import DesignBar from './DesignBar'
 import FieldMappingsModal from './FieldMappingsModal'
+import ImageLibraryModal from './ImageLibraryModal'
 import LayersPanel from './LayersPanel'
 import PropertyInspector from './PropertyInspector'
 import RulesModal from './RulesModal'
@@ -25,6 +26,7 @@ function EditorPage(): React.JSX.Element {
   const [importingExcel, setImportingExcel] = useState(false)
   const [rulesOpen, setRulesOpen] = useState(false)
   const [fieldMappingsOpen, setFieldMappingsOpen] = useState(false)
+  const [imageLibraryOpen, setImageLibraryOpen] = useState(false)
   const [zoom, setZoom] = useState(1)
 
   const zoomIn = useCallback(() => setZoom((z) => Math.min(ZOOM_MAX, z * ZOOM_STEP)), [])
@@ -43,6 +45,7 @@ function EditorPage(): React.JSX.Element {
     canvasSizePx,
     addText,
     addShape,
+    addImage,
     deleteElement,
     duplicateElement,
     updateSelectedProperties,
@@ -86,6 +89,7 @@ function EditorPage(): React.JSX.Element {
         onAddEllipse={() => addShape('ellipse')}
         onImportFont={handleImportFont}
         importingFont={importingFont}
+        onOpenImageLibrary={() => setImageLibraryOpen(true)}
         onUndo={undo}
         onRedo={redo}
         canUndo={canUndo}
@@ -127,6 +131,9 @@ function EditorPage(): React.JSX.Element {
       {rulesOpen && <RulesModal onClose={() => setRulesOpen(false)} />}
       {fieldMappingsOpen && (
         <FieldMappingsModal onClose={() => setFieldMappingsOpen(false)} onSetBinding={setElementBinding} />
+      )}
+      {imageLibraryOpen && (
+        <ImageLibraryModal onClose={() => setImageLibraryOpen(false)} onPlaceImage={addImage} />
       )}
     </div>
   )

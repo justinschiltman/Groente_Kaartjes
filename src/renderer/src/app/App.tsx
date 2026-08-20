@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { loadPersistedFonts } from '../assets/fontLoader'
+import { loadPersistedImages } from '../assets/imageLoader'
 import { useAssetStore } from '../state/assetStore'
 import EditorPage from '../editor/EditorPage'
 import ProductsPage from '../products/ProductsPage'
@@ -10,11 +11,13 @@ function App(): React.JSX.Element {
   const [version, setVersion] = useState<string>('')
   const [view, setView] = useState<AppView>('editor')
   const setFontFamilies = useAssetStore((state) => state.setFontFamilies)
+  const setImageAssets = useAssetStore((state) => state.setImageAssets)
 
   useEffect(() => {
     window.api.getAppVersion().then(setVersion)
     loadPersistedFonts().then(setFontFamilies)
-  }, [setFontFamilies])
+    loadPersistedImages().then(setImageAssets)
+  }, [setFontFamilies, setImageAssets])
 
   return (
     <div className="app-shell">

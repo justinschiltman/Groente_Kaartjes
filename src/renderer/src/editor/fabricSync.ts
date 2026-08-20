@@ -4,8 +4,9 @@
 // a run draws, rest are dropped), while 6.9.1 renders correctly. We never call toSVG()/gradient SVG
 // serialization anywhere (export uses canvas.toDataURL() rasterization, see the Phase 5 plan), so the
 // XSS's actual code path is unused — but re-check this pin against newer fabric releases periodically.
-import { Ellipse, FabricObject, Rect, Textbox } from 'fabric'
+import { Ellipse, FabricImage, FabricObject, Rect, Textbox } from 'fabric'
 import type { CardElement, ElementPatch, ElementType } from '@shared/types/template'
+import { getImageElement } from '@renderer/state/assetStore'
 import { editorUnits, mmToPx, ptToPx, pxToMm, type UnitConverters } from './units'
 
 /** Fabric objects are tagged with the element id they represent, so events can be mapped back to the store. */
@@ -65,8 +66,29 @@ export function buildFabricObject(element: CardElement, units: UnitConverters = 
       stroke: element.stroke,
       strokeWidth: mmToPx(element.strokeWidth)
     })
+  } else if (element.type === 'image') {
+    const imgEl = getImageElement(element.assetId)
+    if (imgEl) {
+      obj = new FabricImage(imgEl, {
+        ...common,
+        scaleX: mmToPx(element.width) / imgEl.naturalWidth,
+        scaleY: mmToPx(element.height) / imgEl.naturalHeight
+      })
+    } else {
+      // Asset not (yet) loaded, or its assetId no longer resolves (e.g. the file was removed) — a
+      // visibly distinct dashed placeholder rather than silently rendering nothing.
+      obj = new Rect({
+        ...common,
+        width: mmToPx(element.width),
+        height: mmToPx(element.height),
+        fill: '#eef3ee',
+        stroke: '#9fb3a2',
+        strokeWidth: 1,
+        strokeDashArray: [6, 4]
+      })
+    }
   } else {
-    throw new Error('Afbeeldingen worden ondersteund vanaf fase 2')
+    throw new Error(`Onbekend elementtype: ${(element as CardElement).type}`)
   }
 
   const tagged = obj as TaggedFabricObject

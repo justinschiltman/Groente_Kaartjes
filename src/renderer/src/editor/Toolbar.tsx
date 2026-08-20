@@ -6,6 +6,7 @@ interface ToolbarProps {
   onAddEllipse: () => void
   onImportFont: () => void
   importingFont: boolean
+  onOpenImageLibrary: () => void
   onUndo: () => void
   onRedo: () => void
   canUndo: boolean
@@ -24,6 +25,7 @@ function Toolbar({
   onAddEllipse,
   onImportFont,
   importingFont,
+  onOpenImageLibrary,
   onUndo,
   onRedo,
   canUndo,
@@ -49,6 +51,9 @@ function Toolbar({
         </button>
         <button type="button" onClick={onImportFont} disabled={importingFont}>
           {importingFont ? 'Bezig…' : '+ Lettertype importeren'}
+        </button>
+        <button type="button" onClick={onOpenImageLibrary}>
+          + Afbeelding
         </button>
       </div>
       <div className="toolbar-group">

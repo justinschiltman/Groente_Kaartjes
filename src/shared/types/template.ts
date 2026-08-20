@@ -30,8 +30,9 @@ export interface TextElement extends BaseElement {
 
 export interface ImageElement extends BaseElement {
   type: 'image'
+  /** References an imported image in the asset library (see assetStore.ts). Undefined/unresolved
+   * (e.g. the backing file was removed) renders as a placeholder box rather than nothing. */
   assetId?: string
-  fit: 'contain' | 'cover' | 'stretch'
 }
 
 export type ShapeKind = 'rect' | 'ellipse'

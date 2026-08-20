@@ -9,3 +9,11 @@ export interface FontVariant {
 export interface FontVariantWithData extends FontVariant {
   data: ArrayBuffer
 }
+
+/** An imported image plus its raw file bytes. fileName doubles as the on-disk name (already
+ * collision-free, see imageRegistry.service.ts) and as a human-readable display name. */
+export interface ImageAssetWithData {
+  id: string
+  fileName: string
+  data: ArrayBuffer
+}

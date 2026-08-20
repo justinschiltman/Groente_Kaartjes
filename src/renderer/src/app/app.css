@@ -637,6 +637,47 @@ button {
   border-radius: 4px;
 }
 
+/* Image library modal */
+
+.image-library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.image-library-thumb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  background: #fafbfa;
+  border: 1px solid #dde3dd;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.image-library-thumb:hover {
+  background: #eef3ee;
+  border-color: #3a7d44;
+}
+
+.image-library-thumb img {
+  width: 100%;
+  height: 72px;
+  object-fit: contain;
+}
+
+.image-library-thumb span {
+  width: 100%;
+  font-size: 0.75rem;
+  color: #5b6b5e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .rules-default-cell {
   text-align: center;
 }
