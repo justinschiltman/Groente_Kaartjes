@@ -8,7 +8,7 @@ import { resolveBoundText } from '@shared/dataBinding'
 import { DEFAULT_CARD_HEIGHT_MM, DEFAULT_CARD_WIDTH_MM } from '@shared/constants'
 import type { CardElement, ElementPatch } from '@shared/types/template'
 
-const WEB_SAFE_FONTS = ['Arial', 'Helvetica', 'Georgia', 'Times New Roman', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Courier New']
+const WEB_SAFE_FONTS = ['Arial', 'Helvetica', 'Georgia', 'Times New Roman', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Courier New', 'Comic Sans MS']
 
 interface PropertyInspectorProps {
   onUpdate: (patch: ElementPatch) => void
