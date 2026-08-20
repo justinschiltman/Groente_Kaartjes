@@ -15,6 +15,8 @@ interface PersistedProject {
   defaultTemplateId: string | null
   cardWidthMm: number
   cardHeightMm: number
+  /** Which Excel column holds the order number to match imported rows against the product database. */
+  orderNumberField: string | null
 }
 
 function loadPersistedProject(): PersistedProject {
@@ -41,7 +43,8 @@ function loadPersistedProject(): PersistedProject {
           triggerField: parsed.triggerField ?? null,
           defaultTemplateId: parsed.defaultTemplateId ?? null,
           cardWidthMm,
-          cardHeightMm
+          cardHeightMm,
+          orderNumberField: parsed.orderNumberField ?? null
         }
       }
       // Migrate the original pre-multi-template shape (a single Template stored directly).
@@ -56,7 +59,8 @@ function loadPersistedProject(): PersistedProject {
           triggerField: null,
           defaultTemplateId: legacy.id,
           cardWidthMm: legacy.cardWidthMm ?? DEFAULT_CARD_WIDTH_MM,
-          cardHeightMm: legacy.cardHeightMm ?? DEFAULT_CARD_HEIGHT_MM
+          cardHeightMm: legacy.cardHeightMm ?? DEFAULT_CARD_HEIGHT_MM,
+          orderNumberField: null
         }
       }
     }
@@ -70,7 +74,8 @@ function loadPersistedProject(): PersistedProject {
     triggerField: null,
     defaultTemplateId: fresh.id,
     cardWidthMm: DEFAULT_CARD_WIDTH_MM,
-    cardHeightMm: DEFAULT_CARD_HEIGHT_MM
+    cardHeightMm: DEFAULT_CARD_HEIGHT_MM,
+    orderNumberField: null
   }
 }
 
@@ -93,6 +98,7 @@ interface ProjectState {
   defaultTemplateId: string | null
   cardWidthMm: number
   cardHeightMm: number
+  orderNumberField: string | null
   undoStack: CardElement[][]
   redoStack: CardElement[][]
 
@@ -112,6 +118,7 @@ interface ProjectState {
   setTemplateTriggerValues: (id: string, values: string[]) => void
   setTriggerField: (field: string | null) => void
   setDefaultTemplateId: (id: string | null) => void
+  setOrderNumberField: (field: string | null) => void
 
   undo: () => void
   redo: () => void
@@ -119,8 +126,8 @@ interface ProjectState {
 
 export const useProjectStore = create<ProjectState>((set, get) => {
   function persistCurrent(): void {
-    const { templates, activeTemplateId, triggerField, defaultTemplateId, cardWidthMm, cardHeightMm } = get()
-    persist({ templates, activeTemplateId, triggerField, defaultTemplateId, cardWidthMm, cardHeightMm })
+    const { templates, activeTemplateId, triggerField, defaultTemplateId, cardWidthMm, cardHeightMm, orderNumberField } = get()
+    persist({ templates, activeTemplateId, triggerField, defaultTemplateId, cardWidthMm, cardHeightMm, orderNumberField })
   }
 
   function activeTemplate(): Template | undefined {
@@ -154,6 +161,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
     defaultTemplateId: initial.defaultTemplateId,
     cardWidthMm: initial.cardWidthMm,
     cardHeightMm: initial.cardHeightMm,
+    orderNumberField: initial.orderNumberField,
     undoStack: [],
     redoStack: [],
 
@@ -296,6 +304,11 @@ export const useProjectStore = create<ProjectState>((set, get) => {
 
     setDefaultTemplateId: (id) => {
       set({ defaultTemplateId: id })
+      persistCurrent()
+    },
+
+    setOrderNumberField: (field) => {
+      set({ orderNumberField: field })
       persistCurrent()
     },
 

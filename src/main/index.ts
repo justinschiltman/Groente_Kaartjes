@@ -3,6 +3,7 @@ import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { registerAssetsIpc } from './ipc/assets.ipc'
 import { registerDataIpc } from './ipc/data.ipc'
 import { registerExportIpc } from './ipc/export.ipc'
+import { registerProductsIpc } from './ipc/products.ipc'
 
 const isDev = !app.isPackaged
 
@@ -43,6 +44,7 @@ app.whenReady().then(() => {
   registerAssetsIpc()
   registerDataIpc()
   registerExportIpc()
+  registerProductsIpc()
 
   createMainWindow()
 

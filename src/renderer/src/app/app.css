@@ -52,6 +52,31 @@ button {
   font-size: 0.8rem;
 }
 
+.app-nav {
+  display: flex;
+  gap: 0.3rem;
+  margin-left: auto;
+}
+
+.app-nav button {
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  padding: 0.35rem 0.8rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.app-nav button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.app-nav button.active {
+  background: rgba(255, 255, 255, 0.18);
+  color: white;
+  font-weight: 600;
+}
+
 .editor-page {
   display: flex;
   flex-direction: column;
@@ -354,12 +379,12 @@ button {
   margin-top: 1rem;
 }
 
-.property-actions .danger {
+.danger {
   color: #b3261e;
   border-color: #e3b3af;
 }
 
-.property-actions .danger:hover {
+.danger:hover {
   background: #fbeae9;
 }
 
@@ -631,4 +656,184 @@ button {
 
 .export-filepath {
   word-break: break-all;
+}
+
+.export-warning {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.7rem;
+  background: #fdf6e3;
+  border: 1px solid #e8d9a8;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  color: #6b5a1f;
+}
+
+/* ---- Products page ---- */
+
+.products-page {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1.25rem 1.5rem;
+}
+
+.products-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.products-search {
+  flex: 1 1 260px;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #c9d3c9;
+  border-radius: 4px;
+}
+
+.products-order-field {
+  flex: 0 0 auto;
+  min-width: 200px;
+}
+
+.products-import-summary {
+  margin: -0.25rem 0 1rem;
+  font-size: 0.85rem;
+  color: #3a7d44;
+}
+
+.products-table-wrap {
+  background: white;
+  border: 1px solid #dde3dd;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.products-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.products-table th,
+.products-table td {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #eef1ee;
+}
+
+.products-table th {
+  background: #fafbfa;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.03em;
+  color: #5b6b5e;
+}
+
+.products-table tbody tr {
+  cursor: pointer;
+}
+
+.products-table tbody tr:hover {
+  background: #f5f9f5;
+}
+
+.products-table-empty-row td {
+  color: #8a958a;
+  cursor: default;
+}
+
+.products-table-empty-row:hover {
+  background: none;
+}
+
+/* ---- Product edit modal ---- */
+
+.product-edit-modal {
+  width: min(560px, 92vw);
+}
+
+.product-delete-button {
+  margin-top: 0.5rem;
+}
+
+/* ---- Multi-option field (text1/text2/country/sold-per) ---- */
+
+.multi-option-field {
+  margin-bottom: 1rem;
+}
+
+.multi-option-label {
+  display: block;
+  font-size: 0.8rem;
+  color: #445044;
+  margin-bottom: 0.35rem;
+}
+
+.multi-option-list {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.multi-option {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid #dde3dd;
+  border-radius: 4px;
+  background: #fafbfa;
+}
+
+.multi-option.active {
+  border-color: #3a7d44;
+  background: #eef5ee;
+}
+
+.multi-option-select {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 0.35rem 0.5rem;
+}
+
+.multi-option-star {
+  color: #d9a441;
+}
+
+.multi-option-remove {
+  border: none;
+  background: none;
+  padding: 0.35rem 0.5rem;
+  color: #8a958a;
+}
+
+.multi-option-remove:hover {
+  color: #b3261e;
+}
+
+.multi-option-add {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.multi-option-add input {
+  flex: 1 1 auto;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #c9d3c9;
+  border-radius: 4px;
 }

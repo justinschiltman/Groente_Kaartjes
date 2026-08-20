@@ -7,11 +7,13 @@ function ExportButton(): React.JSX.Element {
   const [phase, setPhase] = useState<ExportPhase>('idle')
   const [progress, setProgress] = useState<ExportProgress | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [warning, setWarning] = useState<string | null>(null)
 
   async function handleExport(): Promise<void> {
     setPhase('running')
     setProgress(null)
     setMessage(null)
+    setWarning(null)
     try {
       const result = await runExport((p) => setProgress(p))
       if (result.canceled) {
@@ -22,6 +24,7 @@ function ExportButton(): React.JSX.Element {
       } else {
         setPhase('done')
         setMessage(result.filePath ?? null)
+        setWarning(result.warning ?? null)
       }
     } catch (error) {
       setPhase('error')
@@ -69,6 +72,7 @@ function ExportButton(): React.JSX.Element {
                 Het bestand is opgeslagen{message ? ':' : '.'}
                 {message && <strong className="export-filepath"> {message}</strong>}
               </p>
+              {warning && <p className="export-warning">{warning}</p>}
             </div>
           </div>
         </div>

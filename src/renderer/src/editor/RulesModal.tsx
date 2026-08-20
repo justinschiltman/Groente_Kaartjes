@@ -1,4 +1,5 @@
 import { useDataStore } from '@renderer/state/dataStore'
+import { useAvailableFields, mergeCurrentProducts } from '@renderer/state/mergedData'
 import { useProjectStore } from '@renderer/state/projectStore'
 import { resolveTemplateForRow } from '@shared/ruleEngine'
 
@@ -15,7 +16,7 @@ function RulesModal({ onClose }: RulesModalProps): React.JSX.Element {
   const setTriggerField = useProjectStore((state) => state.setTriggerField)
   const setDefaultTemplateId = useProjectStore((state) => state.setDefaultTemplateId)
   const setTemplateTriggerValues = useProjectStore((state) => state.setTemplateTriggerValues)
-  const headers = useDataStore((state) => state.headers)
+  const availableFields = useAvailableFields()
   const rows = useDataStore((state) => state.rows)
 
   const previewRows = rows.slice(0, PREVIEW_ROW_LIMIT)
@@ -34,18 +35,14 @@ function RulesModal({ onClose }: RulesModalProps): React.JSX.Element {
           <label className="field">
             <span>Kolom die bepaalt welk ontwerp gebruikt wordt</span>
             <select value={triggerField ?? ''} onChange={(e) => setTriggerField(e.target.value || null)}>
-              <option value="">— Kies een kolom —</option>
-              {headers.map((header) => (
-                <option key={header} value={header}>
-                  {header}
+              <option value="">— Kies een veld —</option>
+              {availableFields.map((field) => (
+                <option key={field} value={field}>
+                  {field}
                 </option>
               ))}
             </select>
           </label>
-
-          {headers.length === 0 && (
-            <p className="empty-hint">Importeer eerst een Excel-bestand om kolommen te kunnen kiezen.</p>
-          )}
 
           <table className="rules-table">
             <thead>
@@ -107,11 +104,12 @@ function RulesModal({ onClose }: RulesModalProps): React.JSX.Element {
                   </thead>
                   <tbody>
                     {previewRows.map((row, index) => {
-                      const resolved = resolveTemplateForRow(row, templates, triggerField, defaultTemplateId)
+                      const mergedRow = mergeCurrentProducts(row)
+                      const resolved = resolveTemplateForRow(mergedRow, templates, triggerField, defaultTemplateId)
                       return (
                         <tr key={index}>
                           <td>{index + 1}</td>
-                          {triggerField && <td>{String(row[triggerField] ?? '')}</td>}
+                          {triggerField && <td>{String(mergedRow[triggerField] ?? '')}</td>}
                           <td>{resolved ? resolved.name : '(geen ontwerp)'}</td>
                         </tr>
                       )

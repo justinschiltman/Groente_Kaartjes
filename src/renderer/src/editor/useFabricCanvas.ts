@@ -3,6 +3,7 @@ import { Canvas } from 'fabric'
 import { getActiveTemplate, useProjectStore } from '@renderer/state/projectStore'
 import { useDataStore } from '@renderer/state/dataStore'
 import { useEditorUiStore } from '@renderer/state/editorUiStore'
+import { mergeCurrentProducts } from '@renderer/state/mergedData'
 import { resolveBoundText } from '@shared/dataBinding'
 import type { ElementPatch, ShapeKind } from '@shared/types/template'
 import { createShapeElement, createTextElement } from './elementFactory'
@@ -56,7 +57,8 @@ export function useFabricCanvas(): UseFabricCanvasResult {
     if (!canvas) return
     const template = getActiveTemplate()
     const { rows, previewRowIndex } = useDataStore.getState()
-    const row = rows[previewRowIndex]
+    const rawRow = rows[previewRowIndex]
+    const row = rawRow ? mergeCurrentProducts(rawRow) : rawRow
     canvas.getObjects().forEach((obj) => {
       const tagged = obj as TaggedFabricObject
       const element = template.elements.find((el) => el.id === tagged.elementId)

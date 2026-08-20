@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAssetStore } from '@renderer/state/assetStore'
 import { useDataStore } from '@renderer/state/dataStore'
 import { useEditorUiStore } from '@renderer/state/editorUiStore'
+import { useAvailableFields, mergeCurrentProducts } from '@renderer/state/mergedData'
 import { useActiveTemplate, useProjectStore } from '@renderer/state/projectStore'
 import { resolveBoundText } from '@shared/dataBinding'
 import { DEFAULT_CARD_HEIGHT_MM, DEFAULT_CARD_WIDTH_MM } from '@shared/constants'
@@ -209,7 +210,7 @@ function TextFields({
   onUpdate: (patch: ElementPatch) => void
 }): React.JSX.Element {
   const [text, setText] = useState(element.text)
-  const headers = useDataStore((state) => state.headers)
+  const availableFields = useAvailableFields()
   const rows = useDataStore((state) => state.rows)
   const previewRowIndex = useDataStore((state) => state.previewRowIndex)
 
@@ -219,9 +220,9 @@ function TextFields({
         <span>Koppel aan kolom</span>
         <select value={element.bindingKey ?? ''} onChange={(e) => onUpdate({ bindingKey: e.target.value || undefined })}>
           <option value="">Geen (vaste tekst)</option>
-          {headers.map((header) => (
-            <option key={header} value={header}>
-              {header}
+          {availableFields.map((field) => (
+            <option key={field} value={field}>
+              {field}
             </option>
           ))}
         </select>
@@ -242,7 +243,7 @@ function TextFields({
           {rows.length > 0 ? (
             <>
               Voorbeeld (rij {previewRowIndex + 1} van {rows.length}):{' '}
-              <strong>{resolveBoundText(element, rows[previewRowIndex]) || '(leeg)'}</strong>
+              <strong>{resolveBoundText(element, mergeCurrentProducts(rows[previewRowIndex])) || '(leeg)'}</strong>
             </>
           ) : (
             'Importeer een Excel-bestand om een voorbeeld te zien.'

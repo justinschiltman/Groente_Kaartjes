@@ -1,4 +1,5 @@
 import { useDataStore } from '@renderer/state/dataStore'
+import { useAvailableFields, mergeCurrentProducts } from '@renderer/state/mergedData'
 import { useProjectStore } from '@renderer/state/projectStore'
 import { resolveBoundText } from '@shared/dataBinding'
 import type { TextElement } from '@shared/types/template'
@@ -16,10 +17,11 @@ const FORMAT_LABELS: Record<TextElement['formatAs'], string> = {
 
 function FieldMappingsModal({ onClose, onSetBinding }: FieldMappingsModalProps): React.JSX.Element {
   const templates = useProjectStore((state) => state.templates)
-  const headers = useDataStore((state) => state.headers)
+  const availableFields = useAvailableFields()
   const rows = useDataStore((state) => state.rows)
   const previewRowIndex = useDataStore((state) => state.previewRowIndex)
-  const previewRow = rows[previewRowIndex]
+  const rawPreviewRow = rows[previewRowIndex]
+  const previewRow = rawPreviewRow ? mergeCurrentProducts(rawPreviewRow) : rawPreviewRow
 
   const hasAnyTextElement = templates.some((t) => t.elements.some((el) => el.type === 'text'))
 
@@ -35,13 +37,9 @@ function FieldMappingsModal({ onClose, onSetBinding }: FieldMappingsModalProps):
 
         <div className="modal-body">
           <p className="empty-hint">
-            Koppel hier in één keer elk tekstveld van elk ontwerp aan een kolom uit je Excel-bestand. Deze
-            koppelingen worden onthouden totdat je ze hier zelf wijzigt.
+            Koppel hier in één keer elk tekstveld van elk ontwerp aan een productveld of een kolom uit je
+            Excel-bestand. Deze koppelingen worden onthouden totdat je ze hier zelf wijzigt.
           </p>
-
-          {headers.length === 0 && (
-            <p className="empty-hint">Importeer eerst een Excel-bestand om kolommen te kunnen kiezen.</p>
-          )}
 
           {!hasAnyTextElement && (
             <p className="empty-hint">Je hebt nog geen tekstvelden toegevoegd aan een ontwerp.</p>
@@ -75,9 +73,9 @@ function FieldMappingsModal({ onClose, onSetBinding }: FieldMappingsModalProps):
                             onChange={(e) => onSetBinding(template.id, el.id, e.target.value || undefined)}
                           >
                             <option value="">Geen (vaste tekst)</option>
-                            {headers.map((header) => (
-                              <option key={header} value={header}>
-                                {header}
+                            {availableFields.map((field) => (
+                              <option key={field} value={field}>
+                                {field}
                               </option>
                             ))}
                           </select>
