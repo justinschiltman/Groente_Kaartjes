@@ -125,6 +125,25 @@ export function readGeometryPatch(obj: FabricObject): ElementPatch {
     }
   }
 
+  if (obj instanceof FabricImage) {
+    // Unlike Rect/Ellipse, an image's own .width/.height must stay pinned to the source's natural
+    // pixel size forever: Fabric's image renderer treats width/height that exceed or fall short of
+    // the natural size as a CROP boundary (see FabricImage._renderFill, which clamps the drawn
+    // source rect to the natural element size), not a free logical size. Baking scale into them the
+    // way Rect/Ellipse do would crop the image instead of scaling it. So sizing stays expressed
+    // purely as scaleX/scaleY, and width/height are only ever read here, never written.
+    const widthPx = (obj.width ?? 0) * scaleX
+    const heightPx = (obj.height ?? 0) * scaleY
+    obj.setCoords()
+    return {
+      x: pxToMm(obj.left ?? 0),
+      y: pxToMm(obj.top ?? 0),
+      width: pxToMm(widthPx),
+      height: pxToMm(heightPx),
+      rotation: obj.angle ?? 0
+    }
+  }
+
   let widthPx: number
   let heightPx: number
 
@@ -164,12 +183,16 @@ export function applyPatchToFabricObject(obj: TaggedFabricObject, patch: Element
 
   if (patch.width !== undefined) {
     if (obj instanceof Ellipse) updates.rx = mmToPx(patch.width) / 2
+    // See readGeometryPatch: an image's .width must stay at the source's natural size, so a width
+    // patch is expressed as a scaleX relative to that natural size instead of writing .width directly.
+    else if (obj instanceof FabricImage) updates.scaleX = mmToPx(patch.width) / (obj.width || 1)
     else updates.width = mmToPx(patch.width)
   }
   // Textbox height is excluded here on purpose — see readGeometryPatch. It's never a free dimension
   // for text, so patching it directly would just fight Fabric's own content-driven recomputation.
   if (patch.height !== undefined && !(obj instanceof Textbox)) {
     if (obj instanceof Ellipse) updates.ry = mmToPx(patch.height) / 2
+    else if (obj instanceof FabricImage) updates.scaleY = mmToPx(patch.height) / (obj.height || 1)
     else updates.height = mmToPx(patch.height)
   }
 
