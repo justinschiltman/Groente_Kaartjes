@@ -22,10 +22,7 @@ export interface TextElement extends BaseElement {
   fontStyle: 'normal' | 'italic'
   color: string
   align: 'left' | 'center' | 'right'
-  /** currency-whole/currency-cents split a numeric price into its two display parts (e.g. 2.99 ->
-   * "2" and "99") — for showing a big whole number next to small cents, as two separate elements
-   * both bound to the same raw price column. */
-  formatAs: 'text' | 'currency' | 'number' | 'currency-whole' | 'currency-cents'
+  formatAs: 'text' | 'currency' | 'number'
   /** Stretches glyphs vertically independent of the font's normal proportions (Fabric's scaleY
    * transform) — separate from width, which only ever reflows text, never distorts it. 1 = normal. */
   verticalScale?: number

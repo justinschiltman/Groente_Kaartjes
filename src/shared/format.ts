@@ -15,3 +15,10 @@ export function splitCurrencyParts(value: number): { whole: string; cents: strin
   const cents = Math.abs(totalCents % 100)
   return { whole: String(whole), cents: String(cents).padStart(2, '0') }
 }
+
+/** The two binding-key labels a numeric field "X" gets alongside itself (see mergeProductRow.ts and
+ * mergedData.ts's useAvailableFields, which must both derive the exact same labels for a binding to
+ * actually resolve). */
+export function currencySplitLabels(fieldLabel: string): { whole: string; cents: string } {
+  return { whole: `${fieldLabel} (hele euro's)`, cents: `${fieldLabel} (centen)` }
+}

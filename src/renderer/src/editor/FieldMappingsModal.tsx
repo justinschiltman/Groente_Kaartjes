@@ -12,9 +12,7 @@ interface FieldMappingsModalProps {
 const FORMAT_LABELS: Record<TextElement['formatAs'], string> = {
   text: 'Tekst',
   currency: 'Bedrag (€)',
-  number: 'Getal',
-  'currency-whole': "Hele euro's",
-  'currency-cents': 'Centen'
+  number: 'Getal'
 }
 
 function FieldMappingsModal({ onClose, onSetBinding }: FieldMappingsModalProps): React.JSX.Element {

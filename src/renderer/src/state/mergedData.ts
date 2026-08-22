@@ -1,4 +1,5 @@
 import { EU_STATUS_LABEL } from '@shared/euCountries'
+import { currencySplitLabels } from '@shared/format'
 import { mergeProductIntoRow } from '@shared/mergeProductRow'
 import { PRODUCT_FIELD_LABELS } from '@shared/types/product'
 import type { DataRow } from '@shared/types/data'
@@ -22,11 +23,21 @@ const PRODUCT_FIELD_ORDER = [
 
 /** Every field a card element (or a rule's trigger) can bind to: the product database's fields first,
  * then whatever else the imported Excel sheet has (deduplicated on name). Product fields are always
- * listed, even with an empty product catalog, so templates can be designed before products are entered. */
+ * listed, even with an empty product catalog, so templates can be designed before products are entered.
+ * A numeric Excel column (checked against its actual imported values, since headers alone don't carry
+ * a type) also lists its whole-euro/cents parts right next to it — see mergeProductRow.ts, which is
+ * what actually resolves those two extra labels for a bound element. */
 export function useAvailableFields(): string[] {
   const headers = useDataStore((state) => state.headers)
+  const rows = useDataStore((state) => state.rows)
   const extra = headers.filter((h) => !PRODUCT_FIELD_ORDER.includes(h))
-  return [...PRODUCT_FIELD_ORDER, ...extra]
+  const withSplits = extra.flatMap((header) => {
+    const isNumeric = rows.some((row) => typeof row[header] === 'number')
+    if (!isNumeric) return [header]
+    const { whole, cents } = currencySplitLabels(header)
+    return [header, whole, cents]
+  })
+  return [...PRODUCT_FIELD_ORDER, ...withSplits]
 }
 
 /** Merges the current product catalog into a row using the project's configured order-number column.

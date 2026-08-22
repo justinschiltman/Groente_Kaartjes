@@ -1,4 +1,4 @@
-import { formatCurrencyNl, formatNumberNl, splitCurrencyParts } from './format'
+import { formatCurrencyNl, formatNumberNl } from './format'
 import type { DataRow } from './types/data'
 import type { TextElement } from './types/template'
 
@@ -13,7 +13,5 @@ export function resolveBoundText(element: TextElement, row: DataRow | undefined)
   if (raw === null || raw === undefined) return ''
   if (element.formatAs === 'currency' && typeof raw === 'number') return formatCurrencyNl(raw)
   if (element.formatAs === 'number' && typeof raw === 'number') return formatNumberNl(raw)
-  if (element.formatAs === 'currency-whole' && typeof raw === 'number') return splitCurrencyParts(raw).whole
-  if (element.formatAs === 'currency-cents' && typeof raw === 'number') return splitCurrencyParts(raw).cents
   return String(raw)
 }

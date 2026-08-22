@@ -286,8 +286,6 @@ function TextFields({
             <option value="text">Tekst</option>
             <option value="currency">Bedrag (€)</option>
             <option value="number">Getal</option>
-            <option value="currency-whole">Hele euro's (van bedrag)</option>
-            <option value="currency-cents">Centen (van bedrag)</option>
           </select>
         </label>
       </div>

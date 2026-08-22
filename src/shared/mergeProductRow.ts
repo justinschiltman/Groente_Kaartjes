@@ -1,4 +1,5 @@
 import { deriveEuStatus, EU_STATUS_LABEL } from './euCountries'
+import { currencySplitLabels, splitCurrencyParts } from './format'
 import { PRODUCT_FIELD_LABELS } from './types/product'
 import type { Product } from './types/product'
 import type { DataRow } from './types/data'
@@ -32,18 +33,36 @@ export function findMatchingProduct(row: DataRow, orderNumberField: string | nul
  */
 export function mergeProductIntoRow(row: DataRow, orderNumberField: string | null, products: Product[]): DataRow {
   const product = findMatchingProduct(row, orderNumberField, products)
-  if (!product) return row
-  return {
-    [PRODUCT_FIELD_LABELS.name]: product.name || null,
-    [PRODUCT_FIELD_LABELS.orderNumber]: product.orderNumber || null,
-    [PRODUCT_FIELD_LABELS.scaleCode]: product.scaleCode || null,
-    [PRODUCT_FIELD_LABELS.text1]: product.text1.favorite || null,
-    [PRODUCT_FIELD_LABELS.text2]: product.text2.favorite || null,
-    [LEGACY_TEXT_LABELS.text1]: product.text1.favorite || null,
-    [LEGACY_TEXT_LABELS.text2]: product.text2.favorite || null,
-    [PRODUCT_FIELD_LABELS.countryOfOrigin]: product.countryOfOrigin.favorite || null,
-    [PRODUCT_FIELD_LABELS.soldPer]: product.soldPer.favorite || null,
-    [EU_STATUS_LABEL]: deriveEuStatus(product.countryOfOrigin.favorite) || null,
-    ...row
+  const merged = !product
+    ? row
+    : {
+        [PRODUCT_FIELD_LABELS.name]: product.name || null,
+        [PRODUCT_FIELD_LABELS.orderNumber]: product.orderNumber || null,
+        [PRODUCT_FIELD_LABELS.scaleCode]: product.scaleCode || null,
+        [PRODUCT_FIELD_LABELS.text1]: product.text1.favorite || null,
+        [PRODUCT_FIELD_LABELS.text2]: product.text2.favorite || null,
+        [LEGACY_TEXT_LABELS.text1]: product.text1.favorite || null,
+        [LEGACY_TEXT_LABELS.text2]: product.text2.favorite || null,
+        [PRODUCT_FIELD_LABELS.countryOfOrigin]: product.countryOfOrigin.favorite || null,
+        [PRODUCT_FIELD_LABELS.soldPer]: product.soldPer.favorite || null,
+        [EU_STATUS_LABEL]: deriveEuStatus(product.countryOfOrigin.favorite) || null,
+        ...row
+      }
+  return withCurrencySplitFields(merged)
+}
+
+/** For every numeric field in the row (e.g. an imported "Prijs" column), also exposes its whole-euro
+ * and cents parts under their own binding-key labels (see format.ts's currencySplitLabels) — so a
+ * design can bind directly to "Prijs (hele euro's)" as its own field, same as any other, instead of
+ * needing a separate per-element format setting to get at the same value. */
+function withCurrencySplitFields(row: DataRow): DataRow {
+  const splitFields: DataRow = {}
+  for (const [key, value] of Object.entries(row)) {
+    if (typeof value !== 'number') continue
+    const { whole, cents } = splitCurrencyParts(value)
+    const labels = currencySplitLabels(key)
+    splitFields[labels.whole] = whole
+    splitFields[labels.cents] = cents
   }
+  return { ...row, ...splitFields }
 }
