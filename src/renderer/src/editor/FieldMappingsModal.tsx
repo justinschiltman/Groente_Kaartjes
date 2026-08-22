@@ -1,5 +1,6 @@
-import { useDataStore } from '@renderer/state/dataStore'
-import { useAvailableFields, mergeCurrentProducts } from '@renderer/state/mergedData'
+import { useEditorUiStore } from '@renderer/state/editorUiStore'
+import { useAvailableFields, usePreviewProduct, usePreviewRow } from '@renderer/state/mergedData'
+import { useProductStore } from '@renderer/state/productStore'
 import { useProjectStore } from '@renderer/state/projectStore'
 import { resolveBoundText } from '@shared/dataBinding'
 import type { TextElement } from '@shared/types/template'
@@ -18,11 +19,10 @@ const FORMAT_LABELS: Record<TextElement['formatAs'], string> = {
 function FieldMappingsModal({ onClose, onSetBinding }: FieldMappingsModalProps): React.JSX.Element {
   const templates = useProjectStore((state) => state.templates)
   const availableFields = useAvailableFields()
-  const headers = useDataStore((state) => state.headers)
-  const rows = useDataStore((state) => state.rows)
-  const previewRowIndex = useDataStore((state) => state.previewRowIndex)
-  const rawPreviewRow = rows[previewRowIndex]
-  const previewRow = rawPreviewRow ? mergeCurrentProducts(rawPreviewRow) : rawPreviewRow
+  const products = useProductStore((state) => state.products)
+  const previewProduct = usePreviewProduct()
+  const setPreviewProduct = useEditorUiStore((state) => state.setPreviewProduct)
+  const previewRow = usePreviewRow()
 
   const hasAnyTextElement = templates.some((t) => t.elements.some((el) => el.type === 'text'))
 
@@ -38,21 +38,30 @@ function FieldMappingsModal({ onClose, onSetBinding }: FieldMappingsModalProps):
 
         <div className="modal-body">
           <p className="empty-hint">
-            Koppel hier in één keer elk tekstveld van elk ontwerp aan een productveld of een kolom uit je
-            Excel-bestand. Deze koppelingen worden onthouden totdat je ze hier zelf wijzigt.
+            Koppel hier in één keer elk tekstveld van elk ontwerp aan een productveld. Deze koppelingen
+            worden onthouden totdat je ze hier zelf wijzigt.
           </p>
 
           {!hasAnyTextElement && (
             <p className="empty-hint">Je hebt nog geen tekstvelden toegevoegd aan een ontwerp.</p>
           )}
 
-          {headers.length === 0 && (
-            <p className="empty-hint">
-              Productvelden (Naam, Weegschaalcode, …) en de bekende prijslijst-velden (Prijs per kilo,
-              Per gewicht) kun je nu al koppelen — ze vullen zich vanzelf zodra je bij Ontwerpen een
-              Excel-bestand importeert. Andere, eigen kolommen uit die lijst verschijnen hier pas na het
-              importeren.
-            </p>
+          {products.length === 0 ? (
+            <p className="empty-hint">Voeg een product toe bij Producten om een voorbeeld te zien.</p>
+          ) : (
+            <label className="field">
+              <span>Voorbeeldproduct</span>
+              <select
+                value={previewProduct?.id ?? ''}
+                onChange={(e) => setPreviewProduct(e.target.value || null)}
+              >
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name || '(naamloos)'}
+                  </option>
+                ))}
+              </select>
+            </label>
           )}
 
           {templates.map((template) => {

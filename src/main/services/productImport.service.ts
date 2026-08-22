@@ -2,15 +2,25 @@ import { dialog } from 'electron'
 import ExcelJS from 'exceljs'
 import type { ProductImportRow } from '@shared/types/product'
 
-const COLUMN_ALIASES: Record<keyof ProductImportRow, string[]> = {
-  orderNumber: ['bestelnummer', 'ordernummer', 'order nummer', 'artikelnummer'],
-  name: ['naam'],
-  scaleCode: ['weegschaalcode', 'weegschaal code', 'schaalcode', 'plu', 'plu code'],
-  text1: ['top tekst', 'toptekst', 'tekst 1', 'tekst1'],
-  text2: ['tekst onder', 'tekst 2', 'tekst2'],
-  countryOfOrigin: ['land van herkomst', 'herkomst', 'land'],
-  soldPer: ['verkocht per', 'per']
+type FieldKind = 'string' | 'number' | 'boolean'
+
+const COLUMN_ALIASES: Record<keyof ProductImportRow, { aliases: string[]; kind: FieldKind }> = {
+  orderNumber: { aliases: ['bestelnummer', 'ordernummer', 'order nummer', 'artikelnummer'], kind: 'string' },
+  name: { aliases: ['naam'], kind: 'string' },
+  scaleCode: { aliases: ['weegschaalcode', 'weegschaal code', 'schaalcode', 'plu', 'plu code'], kind: 'string' },
+  text1: { aliases: ['top tekst', 'toptekst', 'tekst 1', 'tekst1'], kind: 'string' },
+  text2: { aliases: ['tekst onder', 'tekst 2', 'tekst2'], kind: 'string' },
+  countryOfOrigin: { aliases: ['land van herkomst', 'herkomst', 'land'], kind: 'string' },
+  soldPer: { aliases: ['verkocht per', 'per'], kind: 'string' },
+  pricePerKg: {
+    aliases: ['prijs', 'prijs per kilo', 'prijs per kg', 'kiloprijs', 'kilo prijs', 'verkoopprijs', 'adviesprijs'],
+    kind: 'number'
+  },
+  isPromotion: { aliases: ['actie', 'is actie', 'korting', 'aanbieding'], kind: 'boolean' },
+  soldByWeight: { aliases: ['per gewicht', 'verkoopeenheid', 'per stuk of gewicht', 'stuk of gewicht'], kind: 'boolean' }
 }
+
+const TRUE_TEXT_VALUES = new Set(['ja', 'true', 'waar', 'yes', 'x', '1'])
 
 function normalizeCellValue(raw: ExcelJS.CellValue): string {
   if (raw === null || raw === undefined) return ''
@@ -29,7 +39,7 @@ function normalizeCellValue(raw: ExcelJS.CellValue): string {
 /** Matches a header cell against known column-name aliases (case/whitespace-insensitive). */
 function matchColumn(header: string): keyof ProductImportRow | null {
   const normalized = header.trim().toLowerCase()
-  for (const [field, aliases] of Object.entries(COLUMN_ALIASES) as [keyof ProductImportRow, string[]][]) {
+  for (const [field, { aliases }] of Object.entries(COLUMN_ALIASES) as [keyof ProductImportRow, { aliases: string[] }][]) {
     if (aliases.includes(normalized)) return field
   }
   return null
@@ -61,8 +71,24 @@ export async function importProductsExcel(): Promise<ProductImportRow[] | null> 
     const record: Partial<ProductImportRow> = {}
     columnFields.forEach((field, index) => {
       if (!field) return
-      const value = normalizeCellValue(row.getCell(index + 1).value)
-      if (value) record[field] = value
+      const kind = COLUMN_ALIASES[field].kind
+      const text = normalizeCellValue(row.getCell(index + 1).value)
+
+      if (kind === 'number') {
+        // No value entered this week is meaningfully different from a price of 0 — leave it unset
+        // (same as any other blank cell) rather than defaulting to 0.
+        if (text) {
+          const parsed = Number(text.replace(',', '.'))
+          if (!Number.isNaN(parsed)) (record as Record<string, unknown>)[field] = parsed
+        }
+      } else if (kind === 'boolean') {
+        // Unlike text/number fields, a blank cell in a column that IS present means "Nee" (the column
+        // existing at all is the signal the sheet is tracking this per row) — only a genuinely absent
+        // column (no matching header, so this branch never runs for that field) leaves it unset.
+        ;(record as Record<string, unknown>)[field] = TRUE_TEXT_VALUES.has(text.trim().toLowerCase())
+      } else if (text) {
+        (record as Record<string, unknown>)[field] = text
+      }
     })
     // Order number is the join key — a row without one can't be matched or created meaningfully.
     if (record.orderNumber) rows.push(record as ProductImportRow)

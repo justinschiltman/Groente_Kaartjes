@@ -1,8 +1,10 @@
-import { useDataStore } from '@renderer/state/dataStore'
 import { useProductStore } from '@renderer/state/productStore'
 import { useProjectStore } from '@renderer/state/projectStore'
-import { findMatchingProduct, mergeProductIntoRow } from '@shared/mergeProductRow'
+import { resolveBoundText } from '@shared/dataBinding'
+import { productToRow } from '@shared/mergeProductRow'
 import { resolveTemplateForRow } from '@shared/ruleEngine'
+import type { Template, TextElement } from '@shared/types/template'
+import type { Product } from '@shared/types/product'
 import type { ExportPage, ExportPdfResult } from '@shared/types/export'
 import { createCardRenderer } from './renderCard'
 
@@ -14,51 +16,96 @@ export interface ExportProgress {
   total: number
 }
 
-export interface ExportOutcome extends ExportPdfResult {
-  /** Set when some rows were left out of the PDF — e.g. rows whose order number didn't match any
-   * saved product. The export still proceeds with the rest rather than blocking entirely. */
-  warning?: string
+export interface ResolvedCard {
+  product: Product
+  template: Template
 }
 
-export async function runExport(onProgress?: (progress: ExportProgress) => void): Promise<ExportOutcome> {
-  const { templates, triggerField, defaultTemplateId, cardWidthMm, cardHeightMm, orderNumberField } = useProjectStore.getState()
-  const { rows } = useDataStore.getState()
-  const { products } = useProductStore.getState()
+export interface IncompleteProduct {
+  productName: string
+  missingFields: string[]
+}
 
-  if (rows.length === 0) {
-    return { canceled: false, error: 'Importeer eerst een Excel-bestand met producten voordat je exporteert.' }
+export interface ExportPreflight {
+  ready: ResolvedCard[]
+  incomplete: IncompleteProduct[]
+}
+
+/**
+ * Scans every product with quantity > 0, resolves which design it would use, and checks that every
+ * text field that design binds to actually has a value — "alle relevante velden moeten ingevuld
+ * zijn" per the product's own definition of relevant (whatever its resolved template binds to).
+ * Products with nothing missing go in `ready`; everything else goes in `incomplete` for the caller to
+ * show the user before deciding whether to skip them and proceed with the rest, or go fix them first.
+ */
+export function checkProductsForExport(): ExportPreflight {
+  const { products } = useProductStore.getState()
+  const { templates, defaultTemplateId } = useProjectStore.getState()
+  const candidates = products.filter((p) => p.quantity > 0)
+
+  const ready: ResolvedCard[] = []
+  const incomplete: IncompleteProduct[] = []
+
+  for (const product of candidates) {
+    const row = productToRow(product)
+    const template = resolveTemplateForRow(row, templates, defaultTemplateId)
+    const productName = product.name || '(naamloos)'
+
+    if (!template) {
+      incomplete.push({ productName, missingFields: ['geen ontwerp gevonden'] })
+      continue
+    }
+
+    const missingFields = [
+      ...new Set(
+        template.elements
+          .filter((el): el is TextElement => el.type === 'text' && Boolean(el.bindingKey))
+          .filter((el) => !resolveBoundText(el, row))
+          .map((el) => el.bindingKey as string)
+      )
+    ]
+
+    if (missingFields.length > 0) incomplete.push({ productName, missingFields })
+    else ready.push({ product, template })
+  }
+
+  return { ready, incomplete }
+}
+
+export type ExportOutcome = ExportPdfResult
+
+/**
+ * Renders `quantity` copies of each ready card, 3 per A4 page (the last page simply has whatever's
+ * left, never padded), and composes them into one PDF. On success, resets quantity/isPromotion/
+ * soldByWeight/pricePerKg on exactly the processed products so this batch is never reprinted by
+ * accident next time.
+ */
+export async function runExport(cards: ResolvedCard[], onProgress?: (progress: ExportProgress) => void): Promise<ExportOutcome> {
+  const { cardWidthMm, cardHeightMm } = useProjectStore.getState()
+
+  if (cards.length === 0) {
+    return { canceled: false, error: 'Geen kaartjes om te verwerken. Zet bij Producten een aantal kaartjes op minstens 1.' }
   }
 
   const renderer = createCardRenderer(EXPORT_DPI)
   const pngDataUrls: string[] = []
-  const unmatchedOrderNumbers: string[] = []
+  const total = cards.reduce((sum, c) => sum + c.product.quantity, 0)
+  let rendered = 0
 
   try {
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i]
-
-      // Only enforce the product match when the user has actually configured which column is the
-      // order number — otherwise this behaves exactly as before the product database existed.
-      if (orderNumberField && !findMatchingProduct(row, orderNumberField, products)) {
-        unmatchedOrderNumbers.push(String(row[orderNumberField] ?? '(leeg)'))
-        continue
+    for (const { product, template } of cards) {
+      const row = productToRow(product)
+      for (let i = 0; i < product.quantity; i++) {
+        pngDataUrls.push(renderer.renderCardPng(template, row, cardWidthMm, cardHeightMm))
+        rendered++
+        onProgress?.({ rendered, total })
+        // Yields to the event loop between renders so the progress dialog can actually repaint
+        // instead of the whole batch running as one blocking synchronous stretch.
+        await new Promise((resolve) => setTimeout(resolve, 0))
       }
-
-      const mergedRow = mergeProductIntoRow(row, orderNumberField, products)
-      const template = resolveTemplateForRow(mergedRow, templates, triggerField, defaultTemplateId)
-      if (!template) continue
-      pngDataUrls.push(renderer.renderCardPng(template, mergedRow, cardWidthMm, cardHeightMm))
-      onProgress?.({ rendered: i + 1, total: rows.length })
-      // Yields to the event loop between renders so the progress dialog can actually repaint
-      // instead of the whole batch running as one blocking synchronous stretch.
-      await new Promise((resolve) => setTimeout(resolve, 0))
     }
   } finally {
     await renderer.dispose()
-  }
-
-  if (pngDataUrls.length === 0) {
-    return { canceled: false, error: 'Geen van de rijen kon aan een ontwerp gekoppeld worden.' }
   }
 
   const pages: ExportPage[] = []
@@ -67,9 +114,8 @@ export async function runExport(onProgress?: (progress: ExportProgress) => void)
   }
 
   const result = await window.api.exportPdf({ cardWidthMm, cardHeightMm, pages })
-  const warning =
-    unmatchedOrderNumbers.length > 0
-      ? `${unmatchedOrderNumbers.length} rij(en) overgeslagen: geen product gevonden voor bestelnummer ${unmatchedOrderNumbers.join(', ')}.`
-      : undefined
-  return { ...result, warning }
+  if (!result.canceled && !result.error) {
+    useProductStore.getState().resetProcessed(cards.map((c) => c.product.id))
+  }
+  return result
 }

@@ -6,21 +6,22 @@ function normalize(value: string): string {
 }
 
 /**
- * Picks which template a data row should use: the first template whose triggerValues contains
- * the row's value in triggerField (case/whitespace-insensitive), else the default template, else
- * the first template. Pure function so it can be reused by the batch export pipeline later.
+ * Picks which template a row should use: the first template whose triggerConditions ALL match the
+ * row (each condition matching if the row's value for that field is any of the condition's values),
+ * else the default template, else the first template. Pure function so it's reusable by both the
+ * live rules preview and the export pipeline.
  */
-export function resolveTemplateForRow(
-  row: DataRow,
-  templates: Template[],
-  triggerField: string | null,
-  defaultTemplateId: string | null
-): Template | undefined {
-  if (triggerField) {
-    const rawValue = row[triggerField]
-    const rowValue = normalize(rawValue === null ? '' : String(rawValue))
-    const match = templates.find((template) => template.triggerValues?.some((value) => normalize(value) === rowValue))
-    if (match) return match
-  }
-  return templates.find((template) => template.id === defaultTemplateId) ?? templates[0]
+export function resolveTemplateForRow(row: DataRow, templates: Template[], defaultTemplateId: string | null): Template | undefined {
+  const match = templates.find((template) => {
+    const conditions = template.triggerConditions
+    if (!conditions || conditions.length === 0) return false
+    return conditions.every((condition) => {
+      if (!condition.field || condition.values.length === 0) return false
+      const rawValue = row[condition.field]
+      const rowValue = normalize(rawValue === null || rawValue === undefined ? '' : String(rawValue))
+      return condition.values.some((value) => normalize(value) === rowValue)
+    })
+  })
+  if (match) return match
+  return templates.find((t) => t.id === defaultTemplateId) ?? templates[0]
 }

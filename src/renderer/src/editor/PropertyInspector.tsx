@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAssetStore } from '@renderer/state/assetStore'
-import { useDataStore } from '@renderer/state/dataStore'
 import { useEditorUiStore } from '@renderer/state/editorUiStore'
-import { useAvailableFields, mergeCurrentProducts } from '@renderer/state/mergedData'
+import { useAvailableFields, usePreviewRow } from '@renderer/state/mergedData'
 import { useActiveTemplate, useProjectStore } from '@renderer/state/projectStore'
 import { resolveBoundText } from '@shared/dataBinding'
 import { DEFAULT_CARD_HEIGHT_MM, DEFAULT_CARD_WIDTH_MM } from '@shared/constants'
@@ -233,8 +232,7 @@ function TextFields({
 }): React.JSX.Element {
   const [text, setText] = useState(element.text)
   const availableFields = useAvailableFields()
-  const rows = useDataStore((state) => state.rows)
-  const previewRowIndex = useDataStore((state) => state.previewRowIndex)
+  const previewRow = usePreviewRow()
 
   return (
     <>
@@ -262,13 +260,12 @@ function TextFields({
 
       {element.bindingKey && (
         <p className="binding-preview">
-          {rows.length > 0 ? (
+          {previewRow ? (
             <>
-              Voorbeeld (rij {previewRowIndex + 1} van {rows.length}):{' '}
-              <strong>{resolveBoundText(element, mergeCurrentProducts(rows[previewRowIndex])) || '(leeg)'}</strong>
+              Voorbeeld: <strong>{resolveBoundText(element, previewRow) || '(leeg)'}</strong>
             </>
           ) : (
-            'Importeer een Excel-bestand om een voorbeeld te zien.'
+            'Voeg een product toe bij Producten om een voorbeeld te zien.'
           )}
         </p>
       )}

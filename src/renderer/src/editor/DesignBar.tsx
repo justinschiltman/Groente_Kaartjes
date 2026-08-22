@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { useDataStore } from '@renderer/state/dataStore'
+import { useEditorUiStore } from '@renderer/state/editorUiStore'
+import { usePreviewProduct } from '@renderer/state/mergedData'
+import { useProductStore } from '@renderer/state/productStore'
 import { useProjectStore } from '@renderer/state/projectStore'
-import ExportButton from '../export/ExportButton'
 import type { Template } from '@shared/types/template'
 
 interface DesignBarProps {
@@ -9,8 +10,6 @@ interface DesignBarProps {
   onAddTemplate: () => void
   onDuplicateTemplate: (id: string) => void
   onDeleteTemplate: (id: string) => void
-  onImportExcel: () => void
-  importingExcel: boolean
   onOpenRules: () => void
   onOpenFieldMappings: () => void
 }
@@ -20,18 +19,15 @@ function DesignBar({
   onAddTemplate,
   onDuplicateTemplate,
   onDeleteTemplate,
-  onImportExcel,
-  importingExcel,
   onOpenRules,
   onOpenFieldMappings
 }: DesignBarProps): React.JSX.Element {
   const templates = useProjectStore((state) => state.templates)
   const activeTemplateId = useProjectStore((state) => state.activeTemplateId)
   const renameTemplate = useProjectStore((state) => state.renameTemplate)
-  const fileName = useDataStore((state) => state.fileName)
-  const rows = useDataStore((state) => state.rows)
-  const previewRowIndex = useDataStore((state) => state.previewRowIndex)
-  const setPreviewRowIndex = useDataStore((state) => state.setPreviewRowIndex)
+  const products = useProductStore((state) => state.products)
+  const previewProduct = usePreviewProduct()
+  const setPreviewProduct = useEditorUiStore((state) => state.setPreviewProduct)
 
   return (
     <div className="design-bar">
@@ -54,25 +50,17 @@ function DesignBar({
       </div>
 
       <div className="data-controls">
-        <button type="button" onClick={onImportExcel} disabled={importingExcel}>
-          {importingExcel ? 'Bezig…' : fileName ? `↻ ${fileName}` : 'Excel importeren'}
-        </button>
-        {rows.length > 0 && (
-          <div className="row-nav">
-            <button type="button" onClick={() => setPreviewRowIndex(previewRowIndex - 1)} disabled={previewRowIndex === 0}>
-              ◀
-            </button>
-            <span>
-              Rij {previewRowIndex + 1} / {rows.length}
-            </span>
-            <button
-              type="button"
-              onClick={() => setPreviewRowIndex(previewRowIndex + 1)}
-              disabled={previewRowIndex >= rows.length - 1}
-            >
-              ▶
-            </button>
-          </div>
+        {products.length > 0 && (
+          <label className="preview-product-field" title="Product waarmee het ontwerp hier wordt voorvertoond">
+            <span>Voorbeeld:</span>
+            <select value={previewProduct?.id ?? ''} onChange={(e) => setPreviewProduct(e.target.value || null)}>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name || '(naamloos)'}
+                </option>
+              ))}
+            </select>
+          </label>
         )}
         <button type="button" onClick={onOpenFieldMappings}>
           Veldkoppelingen
@@ -80,7 +68,6 @@ function DesignBar({
         <button type="button" onClick={onOpenRules}>
           Regels
         </button>
-        <ExportButton />
       </div>
     </div>
   )

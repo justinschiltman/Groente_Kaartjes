@@ -3,9 +3,9 @@ import { Canvas } from 'fabric'
 import type { ImageAsset } from '@renderer/assets/imageLoader'
 import { getActiveTemplate, useProjectStore } from '@renderer/state/projectStore'
 import { useAssetStore } from '@renderer/state/assetStore'
-import { useDataStore } from '@renderer/state/dataStore'
 import { useEditorUiStore } from '@renderer/state/editorUiStore'
-import { mergeCurrentProducts } from '@renderer/state/mergedData'
+import { getPreviewRow } from '@renderer/state/mergedData'
+import { useProductStore } from '@renderer/state/productStore'
 import { resolveBoundText } from '@shared/dataBinding'
 import type { ElementPatch, ShapeKind } from '@shared/types/template'
 import { createImageElement, createShapeElement, createTextElement } from './elementFactory'
@@ -54,16 +54,14 @@ export function useFabricCanvas(): UseFabricCanvasResult {
   })
 
   // For every bound text element on canvas, shows the current preview row's value (formatted per
-  // formatAs) instead of its static text — falls back to the static text when unbound or no data
-  // is imported yet. Deliberately a lightweight in-place update (not a rehydrate) so paging through
-  // preview rows doesn't disturb the current selection.
+  // formatAs) instead of its static text — falls back to the static text when unbound or no preview
+  // product is available. Deliberately a lightweight in-place update (not a rehydrate) so switching
+  // the preview product doesn't disturb the current selection.
   const applyPreviewData = useCallback(() => {
     const canvas = fabricCanvasRef.current
     if (!canvas) return
     const template = getActiveTemplate()
-    const { rows, previewRowIndex } = useDataStore.getState()
-    const rawRow = rows[previewRowIndex]
-    const row = rawRow ? mergeCurrentProducts(rawRow) : rawRow
+    const row = getPreviewRow()
     canvas.getObjects().forEach((obj) => {
       const tagged = obj as TaggedFabricObject
       const element = template.elements.find((el) => el.id === tagged.elementId)
@@ -421,14 +419,20 @@ export function useFabricCanvas(): UseFabricCanvasResult {
     // canvasSizePx, specifically so later resizes don't recreate the canvas) — this runs once on mount.
   }, [rehydrate, deleteElement, duplicateElement, undo, redo])
 
-  // Reacts to imports/preview-row changes from the (separate) data store — e.g. paging through rows
-  // or importing a new sheet — without needing dataStore reads inside the render path above.
+  // Reacts to preview-product changes and to edits on the product catalog itself (e.g. changing the
+  // previewed product's Naam updates the live canvas immediately) — without needing store reads
+  // inside the render path above.
   useEffect(() => {
-    return useDataStore.subscribe((state, prevState) => {
-      if (state.rows !== prevState.rows || state.previewRowIndex !== prevState.previewRowIndex) {
-        applyPreviewData()
-      }
+    const unsubProducts = useProductStore.subscribe((state, prevState) => {
+      if (state.products !== prevState.products) applyPreviewData()
     })
+    const unsubPreview = useEditorUiStore.subscribe((state, prevState) => {
+      if (state.previewProductId !== prevState.previewProductId) applyPreviewData()
+    })
+    return () => {
+      unsubProducts()
+      unsubPreview()
+    }
   }, [applyPreviewData])
 
   // Images can finish decoding asynchronously after mount (boot-time load, or an import while the

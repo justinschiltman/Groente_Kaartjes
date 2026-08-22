@@ -57,14 +57,24 @@ export type CardElement = TextElement | ImageElement | ShapeElement
 /** All fields from every element type, each optional — lets property-editing UI patch whichever type is selected. */
 export type ElementPatch = Partial<TextElement> & Partial<ImageElement> & Partial<ShapeElement>
 
+/** One condition in a template's trigger: matches when the row's value for `field` equals ANY of
+ * `values` (case/whitespace-insensitive) — e.g. field "Actie", values ["Ja"]. */
+export interface TemplateCondition {
+  field: string
+  values: string[]
+}
+
 export interface Template {
   id: string
   name: string
   /** Card dimensions are project-wide (see projectStore), not per-template — every design must
    * share one size so any of them can drop into any of the 3 slots on a stacked A4 export page. */
   backgroundColor: string
-  /** Values that select this design when the project's trigger column matches (case/whitespace-insensitive). */
-  triggerValues?: string[]
+  /** This design is selected for a row when ALL of these conditions match (AND across conditions,
+   * OR within one condition's values) — e.g. Actie=Ja AND Per gewicht=Ja picks a design distinct from
+   * Actie=Ja AND Per gewicht=Nee. Empty/undefined means this design is never picked by a rule, only
+   * ever used as the project's default. */
+  triggerConditions?: TemplateCondition[]
   elements: CardElement[]
   createdAt: string
   updatedAt: string

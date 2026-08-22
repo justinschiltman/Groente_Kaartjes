@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { DEFAULT_CARD_HEIGHT_MM, DEFAULT_CARD_WIDTH_MM } from '@shared/constants'
-import type { CardElement, ElementPatch, Template } from '@shared/types/template'
+import type { CardElement, ElementPatch, Template, TemplateCondition } from '@shared/types/template'
 import { createDefaultTemplate } from '@shared/types/template'
 
 const UNDO_LIMIT = 50
@@ -11,12 +11,30 @@ const STORAGE_KEY = 'groente-kaartjes:template'
 interface PersistedProject {
   templates: Template[]
   activeTemplateId: string
-  triggerField: string | null
   defaultTemplateId: string | null
   cardWidthMm: number
   cardHeightMm: number
-  /** Which Excel column holds the order number to match imported rows against the product database. */
-  orderNumberField: string | null
+}
+
+/** A template saved before the multi-condition rule engine only had a single triggerValues list,
+ * matched against the project-wide triggerField that used to live alongside orderNumberField here. */
+type LegacyTemplate = Template & { triggerValues?: string[] }
+
+/** Converts a pre-multi-condition template (one triggerValues list matched against the project's old
+ * single triggerField) into the new triggerConditions shape, so existing rules keep working unchanged
+ * after the upgrade — a template with real triggerValues becomes a single-condition rule; anything
+ * without them is left with no conditions (matches nothing but the default, same as before). */
+function migrateTemplate(t: LegacyTemplate, legacyTriggerField: string | null): Template {
+  const clean = { ...t } as LegacyTemplate & { cardWidthMm?: number; cardHeightMm?: number }
+  delete clean.cardWidthMm
+  delete clean.cardHeightMm
+  if (clean.triggerConditions || !clean.triggerValues || clean.triggerValues.length === 0 || !legacyTriggerField) {
+    delete clean.triggerValues
+    return clean
+  }
+  const triggerConditions: TemplateCondition[] = [{ field: legacyTriggerField, values: clean.triggerValues }]
+  delete clean.triggerValues
+  return { ...clean, triggerConditions }
 }
 
 function loadPersistedProject(): PersistedProject {
@@ -31,36 +49,26 @@ function loadPersistedProject(): PersistedProject {
         )
         const cardWidthMm = parsed.cardWidthMm ?? firstWithSize?.cardWidthMm ?? DEFAULT_CARD_WIDTH_MM
         const cardHeightMm = parsed.cardHeightMm ?? firstWithSize?.cardHeightMm ?? DEFAULT_CARD_HEIGHT_MM
-        const templates = (parsed.templates as Template[]).map((t) => {
-          const clean = { ...t } as Template & { cardWidthMm?: number; cardHeightMm?: number }
-          delete clean.cardWidthMm
-          delete clean.cardHeightMm
-          return clean
-        })
+        const legacyTriggerField: string | null = parsed.triggerField ?? null
+        const templates = (parsed.templates as LegacyTemplate[]).map((t) => migrateTemplate(t, legacyTriggerField))
         return {
           templates,
           activeTemplateId: parsed.activeTemplateId,
-          triggerField: parsed.triggerField ?? null,
           defaultTemplateId: parsed.defaultTemplateId ?? null,
           cardWidthMm,
-          cardHeightMm,
-          orderNumberField: parsed.orderNumberField ?? null
+          cardHeightMm
         }
       }
       // Migrate the original pre-multi-template shape (a single Template stored directly).
       if (parsed && typeof parsed.id === 'string' && Array.isArray(parsed.elements)) {
-        const legacy = parsed as Template & { cardWidthMm?: number; cardHeightMm?: number }
-        const clean = { ...legacy } as Template & { cardWidthMm?: number; cardHeightMm?: number }
-        delete clean.cardWidthMm
-        delete clean.cardHeightMm
+        const legacy = parsed as LegacyTemplate & { cardWidthMm?: number; cardHeightMm?: number }
+        const clean = migrateTemplate(legacy, null)
         return {
           templates: [clean],
           activeTemplateId: legacy.id,
-          triggerField: null,
           defaultTemplateId: legacy.id,
           cardWidthMm: legacy.cardWidthMm ?? DEFAULT_CARD_WIDTH_MM,
-          cardHeightMm: legacy.cardHeightMm ?? DEFAULT_CARD_HEIGHT_MM,
-          orderNumberField: null
+          cardHeightMm: legacy.cardHeightMm ?? DEFAULT_CARD_HEIGHT_MM
         }
       }
     }
@@ -71,11 +79,9 @@ function loadPersistedProject(): PersistedProject {
   return {
     templates: [fresh],
     activeTemplateId: fresh.id,
-    triggerField: null,
     defaultTemplateId: fresh.id,
     cardWidthMm: DEFAULT_CARD_WIDTH_MM,
-    cardHeightMm: DEFAULT_CARD_HEIGHT_MM,
-    orderNumberField: null
+    cardHeightMm: DEFAULT_CARD_HEIGHT_MM
   }
 }
 
@@ -94,11 +100,9 @@ function cloneElements(elements: CardElement[]): CardElement[] {
 interface ProjectState {
   templates: Template[]
   activeTemplateId: string
-  triggerField: string | null
   defaultTemplateId: string | null
   cardWidthMm: number
   cardHeightMm: number
-  orderNumberField: string | null
   undoStack: CardElement[][]
   redoStack: CardElement[][]
 
@@ -115,10 +119,10 @@ interface ProjectState {
   renameTemplate: (id: string, name: string) => void
   deleteTemplate: (id: string) => void
   setActiveTemplate: (id: string) => void
-  setTemplateTriggerValues: (id: string, values: string[]) => void
-  setTriggerField: (field: string | null) => void
+  addTemplateCondition: (templateId: string) => void
+  updateTemplateCondition: (templateId: string, index: number, patch: Partial<TemplateCondition>) => void
+  removeTemplateCondition: (templateId: string, index: number) => void
   setDefaultTemplateId: (id: string | null) => void
-  setOrderNumberField: (field: string | null) => void
 
   undo: () => void
   redo: () => void
@@ -126,8 +130,8 @@ interface ProjectState {
 
 export const useProjectStore = create<ProjectState>((set, get) => {
   function persistCurrent(): void {
-    const { templates, activeTemplateId, triggerField, defaultTemplateId, cardWidthMm, cardHeightMm, orderNumberField } = get()
-    persist({ templates, activeTemplateId, triggerField, defaultTemplateId, cardWidthMm, cardHeightMm, orderNumberField })
+    const { templates, activeTemplateId, defaultTemplateId, cardWidthMm, cardHeightMm } = get()
+    persist({ templates, activeTemplateId, defaultTemplateId, cardWidthMm, cardHeightMm })
   }
 
   function activeTemplate(): Template | undefined {
@@ -157,11 +161,9 @@ export const useProjectStore = create<ProjectState>((set, get) => {
   return {
     templates: initial.templates,
     activeTemplateId: initial.activeTemplateId,
-    triggerField: initial.triggerField,
     defaultTemplateId: initial.defaultTemplateId,
     cardWidthMm: initial.cardWidthMm,
     cardHeightMm: initial.cardHeightMm,
-    orderNumberField: initial.orderNumberField,
     undoStack: [],
     redoStack: [],
 
@@ -251,7 +253,7 @@ export const useProjectStore = create<ProjectState>((set, get) => {
         id: crypto.randomUUID(),
         name: `${source.name} (kopie)`,
         elements: cloneElements(source.elements),
-        triggerValues: undefined,
+        triggerConditions: undefined,
         createdAt: now,
         updatedAt: now
       }
@@ -289,26 +291,46 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       persistCurrent()
     },
 
-    setTemplateTriggerValues: (id, values) => {
+    addTemplateCondition: (templateId) => {
       const { templates } = get()
       set({
-        templates: templates.map((t) => (t.id === id ? { ...t, triggerValues: values, updatedAt: new Date().toISOString() } : t))
+        templates: templates.map((t) =>
+          t.id === templateId
+            ? { ...t, triggerConditions: [...(t.triggerConditions ?? []), { field: '', values: [] }], updatedAt: new Date().toISOString() }
+            : t
+        )
       })
       persistCurrent()
     },
 
-    setTriggerField: (field) => {
-      set({ triggerField: field })
+    updateTemplateCondition: (templateId, index, patch) => {
+      const { templates } = get()
+      set({
+        templates: templates.map((t) => {
+          if (t.id !== templateId) return t
+          const conditions = [...(t.triggerConditions ?? [])]
+          if (!conditions[index]) return t
+          conditions[index] = { ...conditions[index], ...patch }
+          return { ...t, triggerConditions: conditions, updatedAt: new Date().toISOString() }
+        })
+      })
+      persistCurrent()
+    },
+
+    removeTemplateCondition: (templateId, index) => {
+      const { templates } = get()
+      set({
+        templates: templates.map((t) =>
+          t.id === templateId
+            ? { ...t, triggerConditions: (t.triggerConditions ?? []).filter((_, i) => i !== index), updatedAt: new Date().toISOString() }
+            : t
+        )
+      })
       persistCurrent()
     },
 
     setDefaultTemplateId: (id) => {
       set({ defaultTemplateId: id })
-      persistCurrent()
-    },
-
-    setOrderNumberField: (field) => {
-      set({ orderNumberField: field })
       persistCurrent()
     },
 

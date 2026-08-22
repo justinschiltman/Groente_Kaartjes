@@ -48,7 +48,10 @@ interface ProductState {
   products: Product[]
 
   addProduct: () => string
-  updateProduct: (id: string, patch: Partial<Pick<Product, 'name' | 'orderNumber' | 'scaleCode'>>) => void
+  updateProduct: (
+    id: string,
+    patch: Partial<Pick<Product, 'name' | 'orderNumber' | 'scaleCode' | 'quantity' | 'isPromotion' | 'soldByWeight' | 'pricePerKg'>>
+  ) => void
   deleteProduct: (id: string) => void
 
   addOption: (id: string, field: MultiValueFieldKey, value: string) => void
@@ -56,8 +59,15 @@ interface ProductState {
   setFavorite: (id: string, field: MultiValueFieldKey, value: string) => void
 
   /** Bulk-import upsert: matches by orderNumber (case/whitespace-insensitive), creating a new product
-   * if none matches. Only ever adds+favorites the given values, never removes existing alternates. */
+   * if none matches. Only ever adds+favorites the given text values, never removes existing alternates.
+   * Every row unconditionally sets quantity to 1 — importing a sheet means "order one card for
+   * everything in it" by default; price/actie/eenheid are overwritten when the sheet provides them. */
   upsertByOrderNumber: (data: ProductImportRow) => 'created' | 'updated'
+
+  /** After a successful "Verwerken": clears quantity/isPromotion/soldByWeight/pricePerKg on exactly
+   * the given products (the ones actually rendered) so last week's batch is never reprinted by
+   * accident, while any skipped (incomplete) products keep their in-progress values untouched. */
+  resetProcessed: (ids: string[]) => void
 }
 
 export const useProductStore = create<ProductState>((set, get) => {
@@ -120,6 +130,10 @@ export const useProductStore = create<ProductState>((set, get) => {
           text2: data.text2 ? withFavorited(p.text2, data.text2) : p.text2,
           countryOfOrigin: data.countryOfOrigin ? withFavorited(p.countryOfOrigin, data.countryOfOrigin) : p.countryOfOrigin,
           soldPer: data.soldPer ? withFavorited(p.soldPer, data.soldPer) : p.soldPer,
+          quantity: 1,
+          isPromotion: data.isPromotion ?? p.isPromotion,
+          soldByWeight: data.soldByWeight ?? p.soldByWeight,
+          pricePerKg: data.pricePerKg ?? p.pricePerKg,
           updatedAt: now
         }))
         return 'updated'
@@ -134,12 +148,27 @@ export const useProductStore = create<ProductState>((set, get) => {
         text2: createMultiValueField(data.text2),
         countryOfOrigin: createMultiValueField(data.countryOfOrigin),
         soldPer: createMultiValueField(data.soldPer),
+        quantity: 1,
+        isPromotion: data.isPromotion ?? false,
+        soldByWeight: data.soldByWeight ?? false,
+        pricePerKg: data.pricePerKg ?? null,
         createdAt: now,
         updatedAt: now
       }
       set({ products: [...get().products, fresh] })
       persistCurrent()
       return 'created'
+    },
+
+    resetProcessed: (ids) => {
+      const idSet = new Set(ids)
+      const now = new Date().toISOString()
+      set({
+        products: get().products.map((p) =>
+          idSet.has(p.id) ? { ...p, quantity: 0, isPromotion: false, soldByWeight: false, pricePerKg: null, updatedAt: now } : p
+        )
+      })
+      persistCurrent()
     }
   }
 })

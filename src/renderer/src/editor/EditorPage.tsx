@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react'
 import { importFonts as importFontsAndRegister } from '@renderer/assets/fontLoader'
 import { useAssetStore } from '@renderer/state/assetStore'
-import { useDataStore } from '@renderer/state/dataStore'
 import { useProjectStore } from '@renderer/state/projectStore'
 import CanvasEditor from './CanvasEditor'
 import DesignBar from './DesignBar'
@@ -21,9 +20,7 @@ function EditorPage(): React.JSX.Element {
   const canUndo = useProjectStore((state) => state.undoStack.length > 0)
   const canRedo = useProjectStore((state) => state.redoStack.length > 0)
   const setFontFamilies = useAssetStore((state) => state.setFontFamilies)
-  const setImportedSheet = useDataStore((state) => state.setImportedSheet)
   const [importingFont, setImportingFont] = useState(false)
-  const [importingExcel, setImportingExcel] = useState(false)
   const [rulesOpen, setRulesOpen] = useState(false)
   const [fieldMappingsOpen, setFieldMappingsOpen] = useState(false)
   const [imageLibraryOpen, setImageLibraryOpen] = useState(false)
@@ -71,16 +68,6 @@ function EditorPage(): React.JSX.Element {
     }
   }
 
-  async function handleImportExcel(): Promise<void> {
-    setImportingExcel(true)
-    try {
-      const sheet = await window.api.importExcel()
-      if (sheet) setImportedSheet(sheet)
-    } finally {
-      setImportingExcel(false)
-    }
-  }
-
   return (
     <div className="editor-page">
       <Toolbar
@@ -106,8 +93,6 @@ function EditorPage(): React.JSX.Element {
         onAddTemplate={addTemplate}
         onDuplicateTemplate={duplicateTemplate}
         onDeleteTemplate={deleteTemplate}
-        onImportExcel={handleImportExcel}
-        importingExcel={importingExcel}
         onOpenRules={() => setRulesOpen(true)}
         onOpenFieldMappings={() => setFieldMappingsOpen(true)}
       />

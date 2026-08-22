@@ -1,16 +1,14 @@
 import { useMemo, useState } from 'react'
-import { useDataStore } from '@renderer/state/dataStore'
-import { useProjectStore } from '@renderer/state/projectStore'
 import { useProductStore } from '@renderer/state/productStore'
+import type { Product } from '@shared/types/product'
+import ProcessButton from '../export/ProcessButton'
 import ProductEditModal from './ProductEditModal'
 
 function ProductsPage(): React.JSX.Element {
   const products = useProductStore((state) => state.products)
   const addProduct = useProductStore((state) => state.addProduct)
+  const updateProduct = useProductStore((state) => state.updateProduct)
   const upsertByOrderNumber = useProductStore((state) => state.upsertByOrderNumber)
-  const headers = useDataStore((state) => state.headers)
-  const orderNumberField = useProjectStore((state) => state.orderNumberField)
-  const setOrderNumberField = useProjectStore((state) => state.setOrderNumberField)
 
   const [search, setSearch] = useState('')
   const [editingProductId, setEditingProductId] = useState<string | null>(null)
@@ -22,6 +20,9 @@ function ProductsPage(): React.JSX.Element {
     if (!query) return products
     return products.filter((p) => p.name.toLowerCase().includes(query) || p.orderNumber.toLowerCase().includes(query))
   }, [products, search])
+
+  const orderedCount = products.filter((p) => p.quantity > 0).length
+  const totalCards = products.reduce((sum, p) => sum + p.quantity, 0)
 
   function handleAdd(): void {
     setEditingProductId(addProduct())
@@ -40,7 +41,7 @@ function ProductsPage(): React.JSX.Element {
         if (outcome === 'created') created++
         else updated++
       }
-      setImportSummary(`${created} nieuw, ${updated} bijgewerkt (${rows.length} rijen verwerkt).`)
+      setImportSummary(`${created} nieuw, ${updated} bijgewerkt (${rows.length} rijen verwerkt) — allemaal op 1 kaartje gezet.`)
     } finally {
       setImporting(false)
     }
@@ -56,33 +57,19 @@ function ProductsPage(): React.JSX.Element {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <label className="field products-order-field">
-          <span>Bestelnummer-kolom in Excel</span>
-          <select value={orderNumberField ?? ''} onChange={(e) => setOrderNumberField(e.target.value || null)}>
-            <option value="">— Kies een kolom —</option>
-            {headers.map((header) => (
-              <option key={header} value={header}>
-                {header}
-              </option>
-            ))}
-          </select>
-        </label>
         <button type="button" onClick={handleImport} disabled={importing}>
           {importing ? 'Bezig…' : 'Excel importeren'}
         </button>
         <button type="button" onClick={handleAdd}>
           + Product
         </button>
+        <span className="products-summary">
+          {orderedCount} product(en) klaar, {totalCards} kaartje(s) in totaal
+        </span>
+        <ProcessButton />
       </div>
 
       {importSummary && <p className="products-import-summary">{importSummary}</p>}
-
-      {headers.length === 0 && (
-        <p className="empty-hint">
-          Importeer eerst een prijslijst-Excel bij Ontwerpen om een bestelnummer-kolom te kunnen kiezen voor het
-          koppelen van producten aan rijen.
-        </p>
-      )}
 
       {products.length === 0 ? (
         <p className="empty-hint">Nog geen producten. Voeg er een toe of importeer een Excel-bestand.</p>
@@ -92,6 +79,10 @@ function ProductsPage(): React.JSX.Element {
             <thead>
               <tr>
                 <th>Naam</th>
+                <th>Aantal kaartjes</th>
+                <th>Actie</th>
+                <th>Per gewicht</th>
+                <th>Prijs per kilo</th>
                 <th>Bestelnummer</th>
                 <th>Weegschaalcode</th>
                 <th>Top tekst</th>
@@ -102,19 +93,16 @@ function ProductsPage(): React.JSX.Element {
             </thead>
             <tbody>
               {filtered.map((product) => (
-                <tr key={product.id} onClick={() => setEditingProductId(product.id)}>
-                  <td>{product.name || <em>(naamloos)</em>}</td>
-                  <td>{product.orderNumber}</td>
-                  <td>{product.scaleCode}</td>
-                  <td>{product.text1.favorite}</td>
-                  <td>{product.text2.favorite}</td>
-                  <td>{product.countryOfOrigin.favorite}</td>
-                  <td>{product.soldPer.favorite}</td>
-                </tr>
+                <ProductRow
+                  key={product.id}
+                  product={product}
+                  onOpen={() => setEditingProductId(product.id)}
+                  onUpdate={(patch) => updateProduct(product.id, patch)}
+                />
               ))}
               {filtered.length === 0 && (
                 <tr className="products-table-empty-row">
-                  <td colSpan={7}>Geen producten gevonden voor &quot;{search}&quot;.</td>
+                  <td colSpan={11}>Geen producten gevonden voor &quot;{search}&quot;.</td>
                 </tr>
               )}
             </tbody>
@@ -126,6 +114,80 @@ function ProductsPage(): React.JSX.Element {
         <ProductEditModal key={editingProductId} productId={editingProductId} onClose={() => setEditingProductId(null)} />
       )}
     </div>
+  )
+}
+
+interface ProductRowProps {
+  product: Product
+  onOpen: () => void
+  onUpdate: (patch: Partial<Pick<Product, 'quantity' | 'isPromotion' | 'soldByWeight' | 'pricePerKg'>>) => void
+}
+
+function ProductRow({ product, onOpen, onUpdate }: ProductRowProps): React.JSX.Element {
+  const [quantityText, setQuantityText] = useState(String(product.quantity))
+  const [priceText, setPriceText] = useState(product.pricePerKg === null ? '' : String(product.pricePerKg))
+
+  function commitQuantity(): void {
+    const parsed = Math.max(0, Math.round(Number(quantityText)))
+    if (Number.isNaN(parsed)) {
+      setQuantityText(String(product.quantity))
+      return
+    }
+    onUpdate({ quantity: parsed })
+  }
+
+  function commitPrice(): void {
+    if (priceText.trim() === '') {
+      onUpdate({ pricePerKg: null })
+      return
+    }
+    const parsed = Number(priceText.replace(',', '.'))
+    if (Number.isNaN(parsed)) {
+      setPriceText(product.pricePerKg === null ? '' : String(product.pricePerKg))
+      return
+    }
+    onUpdate({ pricePerKg: parsed })
+  }
+
+  return (
+    <tr className={product.quantity > 0 ? 'products-row-active' : undefined} onClick={onOpen}>
+      <td>{product.name || <em>(naamloos)</em>}</td>
+      <td onClick={(e) => e.stopPropagation()}>
+        <input
+          type="number"
+          min={0}
+          className="products-quantity-input"
+          value={quantityText}
+          onChange={(e) => setQuantityText(e.target.value)}
+          onBlur={commitQuantity}
+          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+        />
+      </td>
+      <td onClick={(e) => e.stopPropagation()}>
+        <input type="checkbox" checked={product.isPromotion} onChange={(e) => onUpdate({ isPromotion: e.target.checked })} />
+      </td>
+      <td onClick={(e) => e.stopPropagation()}>
+        <input type="checkbox" checked={product.soldByWeight} onChange={(e) => onUpdate({ soldByWeight: e.target.checked })} />
+      </td>
+      <td onClick={(e) => e.stopPropagation()}>
+        <input
+          type="text"
+          inputMode="decimal"
+          className="products-price-input"
+          placeholder="—"
+          value={priceText}
+          onChange={(e) => setPriceText(e.target.value)}
+          onBlur={commitPrice}
+          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+        />
+      </td>
+      <td>{product.orderNumber}</td>
+      <td>{product.scaleCode}</td>
+      <td>{product.text1.favorite}</td>
+      <td>{product.text2.favorite}</td>
+      <td>{product.countryOfOrigin.favorite}</td>
+      <td>{product.soldPer.favorite}</td>
+    </tr>
   )
 }
 

@@ -26,6 +26,8 @@ function ProductEditModal({ productId, onClose }: ProductEditModalProps): React.
   const [name, setName] = useState(product?.name ?? '')
   const [orderNumber, setOrderNumber] = useState(product?.orderNumber ?? '')
   const [scaleCode, setScaleCode] = useState(product?.scaleCode ?? '')
+  const [quantityText, setQuantityText] = useState(String(product?.quantity ?? 0))
+  const [priceText, setPriceText] = useState(product?.pricePerKg === null || product?.pricePerKg === undefined ? '' : String(product.pricePerKg))
 
   if (!product) return null
 
@@ -42,6 +44,28 @@ function ProductEditModal({ productId, onClose }: ProductEditModalProps): React.
   function commitScaleCode(): void {
     const trimmed = scaleCode.trim()
     if (trimmed !== product?.scaleCode) updateProduct(productId, { scaleCode: trimmed })
+  }
+
+  function commitQuantity(): void {
+    const parsed = Math.max(0, Math.round(Number(quantityText)))
+    if (Number.isNaN(parsed)) {
+      setQuantityText(String(product?.quantity ?? 0))
+      return
+    }
+    updateProduct(productId, { quantity: parsed })
+  }
+
+  function commitPrice(): void {
+    if (priceText.trim() === '') {
+      updateProduct(productId, { pricePerKg: null })
+      return
+    }
+    const parsed = Number(priceText.replace(',', '.'))
+    if (Number.isNaN(parsed)) {
+      setPriceText(product?.pricePerKg === null || product?.pricePerKg === undefined ? '' : String(product.pricePerKg))
+      return
+    }
+    updateProduct(productId, { pricePerKg: parsed })
   }
 
   function handleDelete(): void {
@@ -90,6 +114,51 @@ function ProductEditModal({ productId, onClose }: ProductEditModalProps): React.
                 onBlur={commitScaleCode}
                 onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
               />
+            </label>
+          </div>
+
+          <div className="field-row">
+            <label className="field">
+              <span>Aantal kaartjes</span>
+              <input
+                type="number"
+                min={0}
+                value={quantityText}
+                onChange={(e) => setQuantityText(e.target.value)}
+                onBlur={commitQuantity}
+                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+              />
+            </label>
+            <label className="field">
+              <span>Prijs per kilo</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="—"
+                value={priceText}
+                onChange={(e) => setPriceText(e.target.value)}
+                onBlur={commitPrice}
+                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+              />
+            </label>
+          </div>
+
+          <div className="field-row toggle-row">
+            <label className="field checkbox-field">
+              <input
+                type="checkbox"
+                checked={product.isPromotion}
+                onChange={(e) => updateProduct(productId, { isPromotion: e.target.checked })}
+              />
+              <span>Actie</span>
+            </label>
+            <label className="field checkbox-field">
+              <input
+                type="checkbox"
+                checked={product.soldByWeight}
+                onChange={(e) => updateProduct(productId, { soldByWeight: e.target.checked })}
+              />
+              <span>Per gewicht</span>
             </label>
           </div>
 
