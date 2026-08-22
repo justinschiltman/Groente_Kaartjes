@@ -1,6 +1,7 @@
 import { deriveEuStatus, EU_STATUS_LABEL } from './euCountries'
 import { currencySplitLabels, splitCurrencyParts } from './format'
 import { PRODUCT_FIELD_LABELS } from './types/product'
+import { withAliasedWeeklyFields } from './weeklyFields'
 import type { Product } from './types/product'
 import type { DataRow } from './types/data'
 
@@ -48,7 +49,7 @@ export function mergeProductIntoRow(row: DataRow, orderNumberField: string | nul
         [EU_STATUS_LABEL]: deriveEuStatus(product.countryOfOrigin.favorite) || null,
         ...row
       }
-  return withCurrencySplitFields(merged)
+  return withCurrencySplitFields(withAliasedWeeklyFields(merged))
 }
 
 /** For every numeric field in the row (e.g. an imported "Prijs" column), also exposes its whole-euro

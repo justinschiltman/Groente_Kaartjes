@@ -48,9 +48,10 @@ function FieldMappingsModal({ onClose, onSetBinding }: FieldMappingsModalProps):
 
           {headers.length === 0 && (
             <p className="empty-hint">
-              Productvelden zoals Naam en Weegschaalcode kun je nu al koppelen. Kolommen uit je
-              prijslijst — zoals Prijs, en de hele-euro's/centen-varianten daarvan — verschijnen hier pas
-              nadat je bij Ontwerpen een Excel-bestand hebt geïmporteerd.
+              Productvelden (Naam, Weegschaalcode, …) en de bekende prijslijst-velden (Prijs per kilo,
+              Per gewicht) kun je nu al koppelen — ze vullen zich vanzelf zodra je bij Ontwerpen een
+              Excel-bestand importeert. Andere, eigen kolommen uit die lijst verschijnen hier pas na het
+              importeren.
             </p>
           )}
 
