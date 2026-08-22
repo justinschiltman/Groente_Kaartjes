@@ -5,8 +5,9 @@ import type { ProductImportRow } from '@shared/types/product'
 const COLUMN_ALIASES: Record<keyof ProductImportRow, string[]> = {
   orderNumber: ['bestelnummer', 'ordernummer', 'order nummer', 'artikelnummer'],
   name: ['naam'],
-  text1: ['tekst 1', 'tekst1'],
-  text2: ['tekst 2', 'tekst2'],
+  scaleCode: ['weegschaalcode', 'weegschaal code', 'schaalcode', 'plu', 'plu code'],
+  text1: ['top tekst', 'toptekst', 'tekst 1', 'tekst1'],
+  text2: ['tekst onder', 'tekst 2', 'tekst2'],
   countryOfOrigin: ['land van herkomst', 'herkomst', 'land'],
   soldPer: ['verkocht per', 'per']
 }

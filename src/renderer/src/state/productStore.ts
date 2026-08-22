@@ -48,7 +48,7 @@ interface ProductState {
   products: Product[]
 
   addProduct: () => string
-  updateProduct: (id: string, patch: Partial<Pick<Product, 'name' | 'orderNumber'>>) => void
+  updateProduct: (id: string, patch: Partial<Pick<Product, 'name' | 'orderNumber' | 'scaleCode'>>) => void
   deleteProduct: (id: string) => void
 
   addOption: (id: string, field: MultiValueFieldKey, value: string) => void
@@ -115,6 +115,7 @@ export const useProductStore = create<ProductState>((set, get) => {
         updateOne(existing.id, (p) => ({
           ...p,
           name: data.name?.trim() || p.name,
+          scaleCode: data.scaleCode?.trim() || p.scaleCode,
           text1: data.text1 ? withFavorited(p.text1, data.text1) : p.text1,
           text2: data.text2 ? withFavorited(p.text2, data.text2) : p.text2,
           countryOfOrigin: data.countryOfOrigin ? withFavorited(p.countryOfOrigin, data.countryOfOrigin) : p.countryOfOrigin,
@@ -128,6 +129,7 @@ export const useProductStore = create<ProductState>((set, get) => {
         id: crypto.randomUUID(),
         name: data.name?.trim() ?? '',
         orderNumber: data.orderNumber.trim(),
+        scaleCode: data.scaleCode?.trim() ?? '',
         text1: createMultiValueField(data.text1),
         text2: createMultiValueField(data.text2),
         countryOfOrigin: createMultiValueField(data.countryOfOrigin),

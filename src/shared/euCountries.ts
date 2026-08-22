@@ -1,0 +1,56 @@
+// Dutch names of the 27 EU member states, plus a couple of very common alternate spellings people
+// actually type (accents are optional here — normalize() below strips them before matching).
+const EU_COUNTRY_NAMES = [
+  'oostenrijk',
+  'belgie',
+  'bulgarije',
+  'kroatie',
+  'cyprus',
+  'tsjechie',
+  'tsjechische republiek',
+  'denemarken',
+  'estland',
+  'finland',
+  'frankrijk',
+  'duitsland',
+  'griekenland',
+  'hongarije',
+  'ierland',
+  'italie',
+  'letland',
+  'litouwen',
+  'luxemburg',
+  'malta',
+  'nederland',
+  'holland',
+  'polen',
+  'portugal',
+  'roemenie',
+  'slowakije',
+  'slovenie',
+  'spanje',
+  'zweden'
+]
+
+// Unicode combining diacritical marks block (U+0300-U+036F) — written as an explicit escape range
+// rather than literal characters so the regex itself stays unambiguous to read and edit.
+const COMBINING_MARKS = /[̀-ͯ]/g
+
+function normalize(value: string): string {
+  return value.trim().toLowerCase().normalize('NFD').replace(COMBINING_MARKS, '')
+}
+
+const EU_COUNTRY_SET = new Set(EU_COUNTRY_NAMES.map(normalize))
+
+/** Binding-key label for the derived EU/non-EU field (see mergeProductRow.ts) — not a stored Product
+ * field, so it lives here rather than in PRODUCT_FIELD_LABELS. */
+export const EU_STATUS_LABEL = 'EU/Niet-EU'
+
+/** 'EU' or 'Niet-EU' for a recognized Dutch country name, or '' when the name isn't recognized —
+ * an unrecognized country renders blank (same as any other unresolved bound field) rather than
+ * risking a confidently wrong origin label. */
+export function deriveEuStatus(countryName: string): string {
+  const normalized = normalize(countryName)
+  if (!normalized) return ''
+  return EU_COUNTRY_SET.has(normalized) ? 'EU' : 'Niet-EU'
+}

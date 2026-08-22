@@ -6,7 +6,7 @@ import { useAvailableFields, mergeCurrentProducts } from '@renderer/state/merged
 import { useActiveTemplate, useProjectStore } from '@renderer/state/projectStore'
 import { resolveBoundText } from '@shared/dataBinding'
 import { DEFAULT_CARD_HEIGHT_MM, DEFAULT_CARD_WIDTH_MM } from '@shared/constants'
-import type { CardElement, ElementPatch } from '@shared/types/template'
+import type { CardElement, ElementPatch, TextElement } from '@shared/types/template'
 
 const WEB_SAFE_FONTS = ['Arial', 'Helvetica', 'Georgia', 'Times New Roman', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Courier New', 'Comic Sans MS']
 
@@ -281,11 +281,13 @@ function TextFields({
           <span>Opmaak</span>
           <select
             value={element.formatAs}
-            onChange={(e) => onUpdate({ formatAs: e.target.value as 'text' | 'currency' | 'number' })}
+            onChange={(e) => onUpdate({ formatAs: e.target.value as TextElement['formatAs'] })}
           >
             <option value="text">Tekst</option>
             <option value="currency">Bedrag (€)</option>
             <option value="number">Getal</option>
+            <option value="currency-whole">Hele euro's (van bedrag)</option>
+            <option value="currency-cents">Centen (van bedrag)</option>
           </select>
         </label>
       </div>

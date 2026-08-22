@@ -9,8 +9,8 @@ interface ProductEditModalProps {
 }
 
 const MULTI_FIELD_CONFIG: { key: MultiValueFieldKey; label: string }[] = [
-  { key: 'text1', label: 'Tekst 1' },
-  { key: 'text2', label: 'Tekst 2' },
+  { key: 'text1', label: 'Top tekst' },
+  { key: 'text2', label: 'Tekst onder' },
   { key: 'countryOfOrigin', label: 'Land van herkomst' },
   { key: 'soldPer', label: 'Verkocht per' }
 ]
@@ -25,6 +25,7 @@ function ProductEditModal({ productId, onClose }: ProductEditModalProps): React.
 
   const [name, setName] = useState(product?.name ?? '')
   const [orderNumber, setOrderNumber] = useState(product?.orderNumber ?? '')
+  const [scaleCode, setScaleCode] = useState(product?.scaleCode ?? '')
 
   if (!product) return null
 
@@ -36,6 +37,11 @@ function ProductEditModal({ productId, onClose }: ProductEditModalProps): React.
   function commitOrderNumber(): void {
     const trimmed = orderNumber.trim()
     if (trimmed !== product?.orderNumber) updateProduct(productId, { orderNumber: trimmed })
+  }
+
+  function commitScaleCode(): void {
+    const trimmed = scaleCode.trim()
+    if (trimmed !== product?.scaleCode) updateProduct(productId, { scaleCode: trimmed })
   }
 
   function handleDelete(): void {
@@ -72,6 +78,16 @@ function ProductEditModal({ productId, onClose }: ProductEditModalProps): React.
                 value={orderNumber}
                 onChange={(e) => setOrderNumber(e.target.value)}
                 onBlur={commitOrderNumber}
+                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+              />
+            </label>
+            <label className="field">
+              <span>Weegschaalcode</span>
+              <input
+                type="text"
+                value={scaleCode}
+                onChange={(e) => setScaleCode(e.target.value)}
+                onBlur={commitScaleCode}
                 onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
               />
             </label>

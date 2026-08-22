@@ -93,8 +93,9 @@ function ProductsPage(): React.JSX.Element {
               <tr>
                 <th>Naam</th>
                 <th>Bestelnummer</th>
-                <th>Tekst 1</th>
-                <th>Tekst 2</th>
+                <th>Weegschaalcode</th>
+                <th>Top tekst</th>
+                <th>Tekst onder</th>
                 <th>Land van herkomst</th>
                 <th>Verkocht per</th>
               </tr>
@@ -104,6 +105,7 @@ function ProductsPage(): React.JSX.Element {
                 <tr key={product.id} onClick={() => setEditingProductId(product.id)}>
                   <td>{product.name || <em>(naamloos)</em>}</td>
                   <td>{product.orderNumber}</td>
+                  <td>{product.scaleCode}</td>
                   <td>{product.text1.favorite}</td>
                   <td>{product.text2.favorite}</td>
                   <td>{product.countryOfOrigin.favorite}</td>
@@ -112,7 +114,7 @@ function ProductsPage(): React.JSX.Element {
               ))}
               {filtered.length === 0 && (
                 <tr className="products-table-empty-row">
-                  <td colSpan={6}>Geen producten gevonden voor &quot;{search}&quot;.</td>
+                  <td colSpan={7}>Geen producten gevonden voor &quot;{search}&quot;.</td>
                 </tr>
               )}
             </tbody>
