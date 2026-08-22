@@ -18,6 +18,7 @@ const FORMAT_LABELS: Record<TextElement['formatAs'], string> = {
 function FieldMappingsModal({ onClose, onSetBinding }: FieldMappingsModalProps): React.JSX.Element {
   const templates = useProjectStore((state) => state.templates)
   const availableFields = useAvailableFields()
+  const headers = useDataStore((state) => state.headers)
   const rows = useDataStore((state) => state.rows)
   const previewRowIndex = useDataStore((state) => state.previewRowIndex)
   const rawPreviewRow = rows[previewRowIndex]
@@ -43,6 +44,14 @@ function FieldMappingsModal({ onClose, onSetBinding }: FieldMappingsModalProps):
 
           {!hasAnyTextElement && (
             <p className="empty-hint">Je hebt nog geen tekstvelden toegevoegd aan een ontwerp.</p>
+          )}
+
+          {headers.length === 0 && (
+            <p className="empty-hint">
+              Productvelden zoals Naam en Weegschaalcode kun je nu al koppelen. Kolommen uit je
+              prijslijst — zoals Prijs, en de hele-euro's/centen-varianten daarvan — verschijnen hier pas
+              nadat je bij Ontwerpen een Excel-bestand hebt geïmporteerd.
+            </p>
           )}
 
           {templates.map((template) => {
