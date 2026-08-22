@@ -26,6 +26,9 @@ export interface TextElement extends BaseElement {
   /** Stretches glyphs vertically independent of the font's normal proportions (Fabric's scaleY
    * transform) — separate from width, which only ever reflows text, never distorts it. 1 = normal. */
   verticalScale?: number
+  /** Extra space between letters, in thousandths of the font size (Fabric's charSpacing unit —
+   * the same "tracking" convention used by Illustrator/Photoshop). 0 = normal, negative = tighter. */
+  letterSpacing?: number
 }
 
 export interface ImageElement extends BaseElement {

@@ -290,6 +290,13 @@ function TextFields({
         </label>
       </div>
 
+      <NumberField
+        label="Letterspatiëring"
+        value={element.letterSpacing ?? 0}
+        step={10}
+        onCommit={(letterSpacing) => onUpdate({ letterSpacing })}
+      />
+
       <div className="field-row toggle-row">
         <button
           type="button"

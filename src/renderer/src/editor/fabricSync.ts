@@ -39,6 +39,7 @@ export function buildFabricObject(element: CardElement, units: UnitConverters = 
       fontStyle: element.fontStyle,
       fill: element.color,
       textAlign: element.align,
+      charSpacing: element.letterSpacing ?? 0,
       splitByGrapheme: false,
       // A real scale transform, not a height — Textbox's own height is always derived from content/
       // font/width, so this is what actually stretches/squashes the glyphs on purpose (see
@@ -205,6 +206,7 @@ export function applyPatchToFabricObject(obj: TaggedFabricObject, patch: Element
     if (patch.fontStyle !== undefined) updates.fontStyle = patch.fontStyle
     if (patch.align !== undefined) updates.textAlign = patch.align
     if (patch.verticalScale !== undefined) updates.scaleY = patch.verticalScale
+    if (patch.letterSpacing !== undefined) updates.charSpacing = patch.letterSpacing
   } else {
     if (patch.fill !== undefined) updates.fill = patch.fill
     if (patch.stroke !== undefined) updates.stroke = patch.stroke
