@@ -28,6 +28,9 @@ function ProductEditModal({ productId, onClose }: ProductEditModalProps): React.
   const [scaleCode, setScaleCode] = useState(product?.scaleCode ?? '')
   const [quantityText, setQuantityText] = useState(String(product?.quantity ?? 0))
   const [priceText, setPriceText] = useState(product?.pricePerKg === null || product?.pricePerKg === undefined ? '' : String(product.pricePerKg))
+  const [weightText, setWeightText] = useState(
+    product?.weightGrams === null || product?.weightGrams === undefined ? '' : String(product.weightGrams)
+  )
 
   if (!product) return null
 
@@ -66,6 +69,19 @@ function ProductEditModal({ productId, onClose }: ProductEditModalProps): React.
       return
     }
     updateProduct(productId, { pricePerKg: parsed })
+  }
+
+  function commitWeight(): void {
+    if (weightText.trim() === '') {
+      updateProduct(productId, { weightGrams: null })
+      return
+    }
+    const parsed = Math.max(0, Math.round(Number(weightText.replace(',', '.'))))
+    if (Number.isNaN(parsed)) {
+      setWeightText(product?.weightGrams === null || product?.weightGrams === undefined ? '' : String(product.weightGrams))
+      return
+    }
+    updateProduct(productId, { weightGrams: parsed })
   }
 
   function handleDelete(): void {
@@ -160,6 +176,24 @@ function ProductEditModal({ productId, onClose }: ProductEditModalProps): React.
               />
               <span>Per gewicht</span>
             </label>
+            {product.soldByWeight && (
+              <label className="field">
+                <span>Gewicht</span>
+                <span className="products-weight-input-wrap">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    className="products-weight-input"
+                    placeholder="—"
+                    value={weightText}
+                    onChange={(e) => setWeightText(e.target.value)}
+                    onBlur={commitWeight}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                  />
+                  <span className="products-weight-suffix">gram</span>
+                </span>
+              </label>
+            )}
           </div>
 
           {MULTI_FIELD_CONFIG.map(({ key, label }) => (

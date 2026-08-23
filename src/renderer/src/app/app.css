@@ -845,6 +845,28 @@ button {
   border-radius: 4px;
 }
 
+.products-weight-input-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* Beats the ".field input { width: 100% }" rule (higher specificity) when this is used inside
+   ProductEditModal's field-row layout, not just ProductsPage's plain table cell. */
+.products-weight-input-wrap .products-weight-input {
+  width: 3.5rem;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid #c9d3c9;
+  border-radius: 4px;
+}
+
+.products-weight-suffix {
+  font-size: 0.8rem;
+  color: #5b6b5e;
+}
+
 .process-button {
   background: #3a7d44;
   color: white;

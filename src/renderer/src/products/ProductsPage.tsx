@@ -82,6 +82,7 @@ function ProductsPage(): React.JSX.Element {
                 <th>Aantal kaartjes</th>
                 <th>Actie</th>
                 <th>Per gewicht</th>
+                <th>Gewicht</th>
                 <th>Prijs per kilo</th>
                 <th>Bestelnummer</th>
                 <th>Weegschaalcode</th>
@@ -102,7 +103,7 @@ function ProductsPage(): React.JSX.Element {
               ))}
               {filtered.length === 0 && (
                 <tr className="products-table-empty-row">
-                  <td colSpan={11}>Geen producten gevonden voor &quot;{search}&quot;.</td>
+                  <td colSpan={12}>Geen producten gevonden voor &quot;{search}&quot;.</td>
                 </tr>
               )}
             </tbody>
@@ -120,12 +121,13 @@ function ProductsPage(): React.JSX.Element {
 interface ProductRowProps {
   product: Product
   onOpen: () => void
-  onUpdate: (patch: Partial<Pick<Product, 'quantity' | 'isPromotion' | 'soldByWeight' | 'pricePerKg'>>) => void
+  onUpdate: (patch: Partial<Pick<Product, 'quantity' | 'isPromotion' | 'soldByWeight' | 'pricePerKg' | 'weightGrams'>>) => void
 }
 
 function ProductRow({ product, onOpen, onUpdate }: ProductRowProps): React.JSX.Element {
   const [quantityText, setQuantityText] = useState(String(product.quantity))
   const [priceText, setPriceText] = useState(product.pricePerKg === null ? '' : String(product.pricePerKg))
+  const [weightText, setWeightText] = useState(product.weightGrams === null ? '' : String(product.weightGrams))
 
   function commitQuantity(): void {
     const parsed = Math.max(0, Math.round(Number(quantityText)))
@@ -149,6 +151,19 @@ function ProductRow({ product, onOpen, onUpdate }: ProductRowProps): React.JSX.E
     onUpdate({ pricePerKg: parsed })
   }
 
+  function commitWeight(): void {
+    if (weightText.trim() === '') {
+      onUpdate({ weightGrams: null })
+      return
+    }
+    const parsed = Math.max(0, Math.round(Number(weightText.replace(',', '.'))))
+    if (Number.isNaN(parsed)) {
+      setWeightText(product.weightGrams === null ? '' : String(product.weightGrams))
+      return
+    }
+    onUpdate({ weightGrams: parsed })
+  }
+
   return (
     <tr className={product.quantity > 0 ? 'products-row-active' : undefined} onClick={onOpen}>
       <td>{product.name || <em>(naamloos)</em>}</td>
@@ -168,6 +183,25 @@ function ProductRow({ product, onOpen, onUpdate }: ProductRowProps): React.JSX.E
       </td>
       <td onClick={(e) => e.stopPropagation()}>
         <input type="checkbox" checked={product.soldByWeight} onChange={(e) => onUpdate({ soldByWeight: e.target.checked })} />
+      </td>
+      <td onClick={(e) => e.stopPropagation()}>
+        {product.soldByWeight ? (
+          <span className="products-weight-input-wrap">
+            <input
+              type="text"
+              inputMode="numeric"
+              className="products-weight-input"
+              placeholder="—"
+              value={weightText}
+              onChange={(e) => setWeightText(e.target.value)}
+              onBlur={commitWeight}
+              onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+            />
+            <span className="products-weight-suffix">gram</span>
+          </span>
+        ) : (
+          <span className="empty-hint">—</span>
+        )}
       </td>
       <td onClick={(e) => e.stopPropagation()}>
         <input

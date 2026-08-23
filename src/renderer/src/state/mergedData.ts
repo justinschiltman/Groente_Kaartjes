@@ -1,6 +1,6 @@
-import { EU_STATUS_LABEL } from '@shared/euCountries'
+import { EU_STATUS_LABEL, EU_STATUS_LANDBOUW_LABEL } from '@shared/euCountries'
 import { currencySplitLabels } from '@shared/format'
-import { PRICE_PER_KG_LABEL, productToRow } from '@shared/mergeProductRow'
+import { PORTION_PRICE_LABEL, PRICE_PER_KG_LABEL, WEIGHT_GRAMS_LABEL, productToRow } from '@shared/mergeProductRow'
 import { PRODUCT_FIELD_LABELS } from '@shared/types/product'
 import type { DataRow } from '@shared/types/data'
 import type { Product } from '@shared/types/product'
@@ -25,11 +25,14 @@ export const AVAILABLE_FIELDS = [
   PRODUCT_FIELD_LABELS.countryOfOrigin,
   PRODUCT_FIELD_LABELS.soldPer,
   EU_STATUS_LABEL,
+  EU_STATUS_LANDBOUW_LABEL,
   PRODUCT_FIELD_LABELS.isPromotion,
   PRODUCT_FIELD_LABELS.soldByWeight,
+  WEIGHT_GRAMS_LABEL,
   PRICE_PER_KG_LABEL,
   PRICE_SPLIT_LABELS.whole,
-  PRICE_SPLIT_LABELS.cents
+  PRICE_SPLIT_LABELS.cents,
+  PORTION_PRICE_LABEL
 ]
 
 /** Hook form, for components that prefer the useX naming convention — the list is static, so this is

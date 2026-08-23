@@ -36,6 +36,12 @@ export interface Product {
   /** This week's price per kilo, or null when not (yet) set. See format.ts's splitCurrencyParts for
    * how a bound design shows this as one amount, or as separate whole-euro/cents parts. */
   pricePerKg: number | null
+  /** The weight of one sold portion in grams (e.g. 100/250/500), only meaningful — and only editable
+   * in the UI — while soldByWeight is true. Drives the computed "price at this weight" field in
+   * mergeProductRow.ts (pricePerKg / 1000 * weightGrams). Kept even if soldByWeight is later
+   * unchecked, same as other week-specific fields, but mergeProductRow.ts only surfaces it while
+   * soldByWeight is true so a stale value never leaks onto a per-piece card. */
+  weightGrams: number | null
   createdAt: string
   updatedAt: string
 }
@@ -55,6 +61,7 @@ export function createDefaultProduct(): Product {
     isPromotion: false,
     soldByWeight: false,
     pricePerKg: null,
+    weightGrams: null,
     createdAt: now,
     updatedAt: now
   }
@@ -104,4 +111,6 @@ export interface ProductImportRow {
   pricePerKg?: number
   isPromotion?: boolean
   soldByWeight?: boolean
+  /** The weight of one sold portion in grams — see Product.weightGrams. */
+  weightGrams?: number
 }

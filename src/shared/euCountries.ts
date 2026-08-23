@@ -54,3 +54,16 @@ export function deriveEuStatus(countryName: string): string {
   if (!normalized) return ''
   return EU_COUNTRY_SET.has(normalized) ? 'EU' : 'Niet-EU'
 }
+
+/** Binding-key label for the fuller "EU landbouw"/"Niet-EU landbouw" phrase some card designs need
+ * for produce labeling, as opposed to the bare EU_STATUS_LABEL category — see deriveEuStatusLandbouw. */
+export const EU_STATUS_LANDBOUW_LABEL = 'EU/Niet-EU landbouw'
+
+/** 'EU landbouw' or 'Niet-EU landbouw' for a recognized country, or '' when unrecognized — same
+ * recognition as deriveEuStatus, just phrased as the full label produce packaging needs to show, so a
+ * design can bind directly to this instead of combining EU_STATUS_LABEL with separate static text.
+ * Capitalized "Niet-EU" to match EU_STATUS_LABEL's existing convention throughout the app. */
+export function deriveEuStatusLandbouw(countryName: string): string {
+  const status = deriveEuStatus(countryName)
+  return status ? `${status} landbouw` : ''
+}

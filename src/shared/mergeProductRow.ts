@@ -1,10 +1,14 @@
-import { deriveEuStatus, EU_STATUS_LABEL } from './euCountries'
-import { currencySplitLabels, splitCurrencyParts } from './format'
+import { deriveEuStatus, deriveEuStatusLandbouw, EU_STATUS_LABEL, EU_STATUS_LANDBOUW_LABEL } from './euCountries'
+import { currencySplitLabels, formatCurrencyNl, splitCurrencyParts } from './format'
 import { PRODUCT_FIELD_LABELS } from './types/product'
 import type { Product } from './types/product'
 import type { DataRow } from './types/data'
 
 export const PRICE_PER_KG_LABEL = 'Prijs per kilo'
+/** The portion weight as display text (e.g. "250 gram") — see Product.weightGrams. */
+export const WEIGHT_GRAMS_LABEL = 'Gewicht (gram)'
+/** The computed price for one portion: pricePerKg / 1000 * weightGrams, formatted as "€ 1,49". */
+export const PORTION_PRICE_LABEL = 'Prijs bij dit gewicht'
 
 /** text1/text2 were labeled "Tekst 1"/"Tekst 2" before they became "Top tekst"/"Tekst onder" —
  * existing card elements may still have a bindingKey pointing at the old label, so the row below also
@@ -31,6 +35,7 @@ export function productToRow(product: Product): DataRow {
     [PRODUCT_FIELD_LABELS.countryOfOrigin]: product.countryOfOrigin.favorite || null,
     [PRODUCT_FIELD_LABELS.soldPer]: product.soldPer.favorite || null,
     [EU_STATUS_LABEL]: deriveEuStatus(product.countryOfOrigin.favorite) || null,
+    [EU_STATUS_LANDBOUW_LABEL]: deriveEuStatusLandbouw(product.countryOfOrigin.favorite) || null,
     [PRODUCT_FIELD_LABELS.isPromotion]: product.isPromotion ? BOOLEAN_LABELS.true : BOOLEAN_LABELS.false,
     [PRODUCT_FIELD_LABELS.soldByWeight]: product.soldByWeight ? BOOLEAN_LABELS.true : BOOLEAN_LABELS.false,
     [PRICE_PER_KG_LABEL]: product.pricePerKg
@@ -40,6 +45,14 @@ export function productToRow(product: Product): DataRow {
     const parts = splitCurrencyParts(product.pricePerKg)
     row[whole] = parts.whole
     row[cents] = parts.cents
+  }
+  // weightGrams only means anything while soldByWeight is true — gating here means a stale gram
+  // amount left over from a previous week never resurfaces on a card that's now sold per piece.
+  if (product.soldByWeight && product.weightGrams !== null) {
+    row[WEIGHT_GRAMS_LABEL] = `${product.weightGrams} gram`
+    if (product.pricePerKg !== null) {
+      row[PORTION_PRICE_LABEL] = formatCurrencyNl((product.pricePerKg / 1000) * product.weightGrams)
+    }
   }
   return row
 }

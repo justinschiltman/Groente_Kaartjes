@@ -50,7 +50,9 @@ interface ProductState {
   addProduct: () => string
   updateProduct: (
     id: string,
-    patch: Partial<Pick<Product, 'name' | 'orderNumber' | 'scaleCode' | 'quantity' | 'isPromotion' | 'soldByWeight' | 'pricePerKg'>>
+    patch: Partial<
+      Pick<Product, 'name' | 'orderNumber' | 'scaleCode' | 'quantity' | 'isPromotion' | 'soldByWeight' | 'pricePerKg' | 'weightGrams'>
+    >
   ) => void
   deleteProduct: (id: string) => void
 
@@ -134,6 +136,7 @@ export const useProductStore = create<ProductState>((set, get) => {
           isPromotion: data.isPromotion ?? p.isPromotion,
           soldByWeight: data.soldByWeight ?? p.soldByWeight,
           pricePerKg: data.pricePerKg ?? p.pricePerKg,
+          weightGrams: data.weightGrams ?? p.weightGrams,
           updatedAt: now
         }))
         return 'updated'
@@ -152,6 +155,7 @@ export const useProductStore = create<ProductState>((set, get) => {
         isPromotion: data.isPromotion ?? false,
         soldByWeight: data.soldByWeight ?? false,
         pricePerKg: data.pricePerKg ?? null,
+        weightGrams: data.weightGrams ?? null,
         createdAt: now,
         updatedAt: now
       }
@@ -165,7 +169,9 @@ export const useProductStore = create<ProductState>((set, get) => {
       const now = new Date().toISOString()
       set({
         products: get().products.map((p) =>
-          idSet.has(p.id) ? { ...p, quantity: 0, isPromotion: false, soldByWeight: false, pricePerKg: null, updatedAt: now } : p
+          idSet.has(p.id)
+            ? { ...p, quantity: 0, isPromotion: false, soldByWeight: false, pricePerKg: null, weightGrams: null, updatedAt: now }
+            : p
         )
       })
       persistCurrent()

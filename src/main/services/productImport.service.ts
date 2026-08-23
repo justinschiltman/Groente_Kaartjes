@@ -17,7 +17,8 @@ const COLUMN_ALIASES: Record<keyof ProductImportRow, { aliases: string[]; kind: 
     kind: 'number'
   },
   isPromotion: { aliases: ['actie', 'is actie', 'korting', 'aanbieding'], kind: 'boolean' },
-  soldByWeight: { aliases: ['per gewicht', 'verkoopeenheid', 'per stuk of gewicht', 'stuk of gewicht'], kind: 'boolean' }
+  soldByWeight: { aliases: ['per gewicht', 'verkoopeenheid', 'per stuk of gewicht', 'stuk of gewicht'], kind: 'boolean' },
+  weightGrams: { aliases: ['gewicht', 'gewicht (gram)', 'gram', 'aantal gram', 'gewicht in gram'], kind: 'number' }
 }
 
 const TRUE_TEXT_VALUES = new Set(['ja', 'true', 'waar', 'yes', 'x', '1'])
