@@ -8,6 +8,7 @@ import { useEditorUiStore } from './editorUiStore'
 import { useProductStore } from './productStore'
 
 const PRICE_SPLIT_LABELS = currencySplitLabels(PRICE_PER_KG_LABEL)
+const PORTION_PRICE_SPLIT_LABELS = currencySplitLabels(PORTION_PRICE_LABEL)
 
 /** Every field a card element (or a rule's trigger condition) can bind to. All of them come from the
  * product database now (see mergeProductRow.ts's productToRow) — Naam and Weegschaalcode exactly as
@@ -32,7 +33,9 @@ export const AVAILABLE_FIELDS = [
   PRICE_PER_KG_LABEL,
   PRICE_SPLIT_LABELS.whole,
   PRICE_SPLIT_LABELS.cents,
-  PORTION_PRICE_LABEL
+  PORTION_PRICE_LABEL,
+  PORTION_PRICE_SPLIT_LABELS.whole,
+  PORTION_PRICE_SPLIT_LABELS.cents
 ]
 
 /** Hook form, for components that prefer the useX naming convention — the list is static, so this is

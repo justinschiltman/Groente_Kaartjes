@@ -13,7 +13,12 @@ function loadPersisted(): PersistedProducts {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
-      if (parsed && Array.isArray(parsed.products)) return { products: parsed.products }
+      if (parsed && Array.isArray(parsed.products)) {
+        // weightGrams was added after products already existed in the wild, so a record saved before
+        // that has no such key at all (not even null) — normalize once on load so every reader can
+        // trust `number | null` and never has to special-case `undefined`.
+        return { products: parsed.products.map((p: Product) => ({ ...p, weightGrams: p.weightGrams ?? null })) }
+      }
     }
   } catch {
     // Corrupted or unreadable persisted state falls back to an empty catalog rather than crashing.

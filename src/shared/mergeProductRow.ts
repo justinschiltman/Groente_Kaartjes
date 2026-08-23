@@ -51,7 +51,14 @@ export function productToRow(product: Product): DataRow {
   if (product.soldByWeight && product.weightGrams !== null) {
     row[WEIGHT_GRAMS_LABEL] = `${product.weightGrams} gram`
     if (product.pricePerKg !== null) {
-      row[PORTION_PRICE_LABEL] = formatCurrencyNl((product.pricePerKg / 1000) * product.weightGrams)
+      const portionPrice = (product.pricePerKg / 1000) * product.weightGrams
+      row[PORTION_PRICE_LABEL] = formatCurrencyNl(portionPrice)
+      // Same big-euros/small-cents split already offered for Prijs per kilo (see currencySplitLabels),
+      // so a "€22,90"-style big-digit price design can use the portion price too, not just the per-kilo one.
+      const { whole, cents } = currencySplitLabels(PORTION_PRICE_LABEL)
+      const parts = splitCurrencyParts(portionPrice)
+      row[whole] = parts.whole
+      row[cents] = parts.cents
     }
   }
   return row
