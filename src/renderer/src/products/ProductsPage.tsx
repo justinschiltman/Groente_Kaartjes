@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useProductStore } from '@renderer/state/productStore'
+import { parseDecimalNl } from '@shared/format'
 import type { Product } from '@shared/types/product'
 import ProcessButton from '../export/ProcessButton'
 import ProductEditModal from './ProductEditModal'
@@ -129,6 +130,13 @@ function ProductRow({ product, onOpen, onUpdate }: ProductRowProps): React.JSX.E
   const [priceText, setPriceText] = useState(product.pricePerKg === null ? '' : String(product.pricePerKg))
   const [weightText, setWeightText] = useState(product.weightGrams === null ? '' : String(product.weightGrams))
 
+  // This row stays mounted (same key=product.id) across edits made elsewhere — e.g. via the "+ Product"
+  // modal right after creating it — so these draft buffers need to resync whenever the store's value
+  // changes out from under them, not just once at mount.
+  useEffect(() => setQuantityText(String(product.quantity)), [product.quantity])
+  useEffect(() => setPriceText(product.pricePerKg === null ? '' : String(product.pricePerKg)), [product.pricePerKg])
+  useEffect(() => setWeightText(product.weightGrams === null ? '' : String(product.weightGrams)), [product.weightGrams])
+
   function commitQuantity(): void {
     const parsed = Math.max(0, Math.round(Number(quantityText)))
     if (Number.isNaN(parsed)) {
@@ -143,8 +151,8 @@ function ProductRow({ product, onOpen, onUpdate }: ProductRowProps): React.JSX.E
       onUpdate({ pricePerKg: null })
       return
     }
-    const parsed = Number(priceText.replace(',', '.'))
-    if (Number.isNaN(parsed)) {
+    const parsed = parseDecimalNl(priceText)
+    if (parsed === null) {
       setPriceText(product.pricePerKg === null ? '' : String(product.pricePerKg))
       return
     }
@@ -156,12 +164,12 @@ function ProductRow({ product, onOpen, onUpdate }: ProductRowProps): React.JSX.E
       onUpdate({ weightGrams: null })
       return
     }
-    const parsed = Math.max(0, Math.round(Number(weightText.replace(',', '.'))))
-    if (Number.isNaN(parsed)) {
+    const parsed = parseDecimalNl(weightText)
+    if (parsed === null) {
       setWeightText(product.weightGrams === null ? '' : String(product.weightGrams))
       return
     }
-    onUpdate({ weightGrams: parsed })
+    onUpdate({ weightGrams: Math.max(0, Math.round(parsed)) })
   }
 
   return (

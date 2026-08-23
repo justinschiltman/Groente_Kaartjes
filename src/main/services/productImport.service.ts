@@ -1,5 +1,6 @@
 import { dialog } from 'electron'
 import ExcelJS from 'exceljs'
+import { parseDecimalNl } from '@shared/format'
 import type { ProductImportRow } from '@shared/types/product'
 
 type FieldKind = 'string' | 'number' | 'boolean'
@@ -79,8 +80,8 @@ export async function importProductsExcel(): Promise<ProductImportRow[] | null> 
         // No value entered this week is meaningfully different from a price of 0 — leave it unset
         // (same as any other blank cell) rather than defaulting to 0.
         if (text) {
-          const parsed = Number(text.replace(',', '.'))
-          if (!Number.isNaN(parsed)) (record as Record<string, unknown>)[field] = parsed
+          const parsed = parseDecimalNl(text)
+          if (parsed !== null) (record as Record<string, unknown>)[field] = parsed
         }
       } else if (kind === 'boolean') {
         // Unlike text/number fields, a blank cell in a column that IS present means "Nee" (the column

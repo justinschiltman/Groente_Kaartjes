@@ -2,6 +2,23 @@ export function formatCurrencyNl(value: number): string {
   return new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(value)
 }
 
+/** Parses a number typed with either "," or "." as the decimal separator — people reach for either
+ * one without thinking about it, so both must produce the same value. Takes the LAST "," or "." in
+ * the string as the decimal point and strips any earlier ones (treated as thousands separators), so
+ * "22,90", "22.90" and "1.234,56" all parse the same way regardless of which one was meant as "the
+ * comma". Returns null for empty/unparseable input, letting the caller decide the fallback. */
+export function parseDecimalNl(text: string): number | null {
+  const trimmed = text.trim()
+  if (!trimmed) return null
+  const lastSeparator = Math.max(trimmed.lastIndexOf('.'), trimmed.lastIndexOf(','))
+  const normalized =
+    lastSeparator === -1
+      ? trimmed
+      : `${trimmed.slice(0, lastSeparator).replace(/[.,]/g, '')}.${trimmed.slice(lastSeparator + 1)}`
+  const parsed = Number(normalized)
+  return Number.isNaN(parsed) ? null : parsed
+}
+
 export function formatNumberNl(value: number): string {
   return new Intl.NumberFormat('nl-NL').format(value)
 }

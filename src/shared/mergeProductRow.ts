@@ -1,10 +1,13 @@
-import { deriveEuStatus, deriveEuStatusLandbouw, EU_STATUS_LABEL, EU_STATUS_LANDBOUW_LABEL } from './euCountries'
+import { deriveEuStatusLandbouw, EU_STATUS_LABEL, EU_STATUS_LANDBOUW_LABEL } from './euCountries'
 import { currencySplitLabels, formatCurrencyNl, splitCurrencyParts } from './format'
 import { PRODUCT_FIELD_LABELS } from './types/product'
 import type { Product } from './types/product'
 import type { DataRow } from './types/data'
 
 export const PRICE_PER_KG_LABEL = 'Prijs per kilo'
+/** Prijs per kilo pre-formatted with its unit, e.g. "€ 22,90 kg" — for a reference-price display that
+ * should never need a separate Opmaak step to read correctly. */
+export const PRICE_PER_KG_DISPLAY_LABEL = 'Prijs per kilo (met eenheid)'
 /** The portion weight as display text (e.g. "250 gram") — see Product.weightGrams. */
 export const WEIGHT_GRAMS_LABEL = 'Gewicht (gram)'
 /** The computed price for one portion: pricePerKg / 1000 * weightGrams, formatted as "€ 1,49". */
@@ -14,6 +17,12 @@ export const PORTION_PRICE_LABEL = 'Prijs bij dit gewicht'
  * existing card elements may still have a bindingKey pointing at the old label, so the row below also
  * carries the same values under these for backward compatibility. */
 const LEGACY_TEXT_LABELS = { text1: 'Tekst 1', text2: 'Tekst 2' } as const
+
+/** EU_STATUS_LABEL ("EU/Niet-EU") used to carry the bare category — that was confusing next to
+ * EU_STATUS_LANDBOUW_LABEL's fuller phrase, and no design ever actually wanted the bare version, so
+ * it's no longer offered in the field picker (see mergedData.ts's AVAILABLE_FIELDS). It's still
+ * populated here, with the SAME full-phrase value as EU_STATUS_LANDBOUW_LABEL, purely so any element
+ * still bound to the old label keeps resolving — and now shows the better phrasing too. */
 
 const BOOLEAN_LABELS = { true: 'Ja', false: 'Nee' }
 
@@ -34,7 +43,7 @@ export function productToRow(product: Product): DataRow {
     [LEGACY_TEXT_LABELS.text2]: product.text2.favorite || null,
     [PRODUCT_FIELD_LABELS.countryOfOrigin]: product.countryOfOrigin.favorite || null,
     [PRODUCT_FIELD_LABELS.soldPer]: product.soldPer.favorite || null,
-    [EU_STATUS_LABEL]: deriveEuStatus(product.countryOfOrigin.favorite) || null,
+    [EU_STATUS_LABEL]: deriveEuStatusLandbouw(product.countryOfOrigin.favorite) || null,
     [EU_STATUS_LANDBOUW_LABEL]: deriveEuStatusLandbouw(product.countryOfOrigin.favorite) || null,
     [PRODUCT_FIELD_LABELS.isPromotion]: product.isPromotion ? BOOLEAN_LABELS.true : BOOLEAN_LABELS.false,
     [PRODUCT_FIELD_LABELS.soldByWeight]: product.soldByWeight ? BOOLEAN_LABELS.true : BOOLEAN_LABELS.false,
@@ -45,6 +54,7 @@ export function productToRow(product: Product): DataRow {
     const parts = splitCurrencyParts(product.pricePerKg)
     row[whole] = parts.whole
     row[cents] = parts.cents
+    row[PRICE_PER_KG_DISPLAY_LABEL] = `${formatCurrencyNl(product.pricePerKg)} kg`
   }
   // weightGrams only means anything while soldByWeight is true — gating here means a stale gram
   // amount left over from a previous week never resurfaces on a card that's now sold per piece.

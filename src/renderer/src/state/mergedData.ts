@@ -1,6 +1,12 @@
-import { EU_STATUS_LABEL, EU_STATUS_LANDBOUW_LABEL } from '@shared/euCountries'
+import { EU_STATUS_LANDBOUW_LABEL } from '@shared/euCountries'
 import { currencySplitLabels } from '@shared/format'
-import { PORTION_PRICE_LABEL, PRICE_PER_KG_LABEL, WEIGHT_GRAMS_LABEL, productToRow } from '@shared/mergeProductRow'
+import {
+  PORTION_PRICE_LABEL,
+  PRICE_PER_KG_DISPLAY_LABEL,
+  PRICE_PER_KG_LABEL,
+  WEIGHT_GRAMS_LABEL,
+  productToRow
+} from '@shared/mergeProductRow'
 import { PRODUCT_FIELD_LABELS } from '@shared/types/product'
 import type { DataRow } from '@shared/types/data'
 import type { Product } from '@shared/types/product'
@@ -12,11 +18,11 @@ const PORTION_PRICE_SPLIT_LABELS = currencySplitLabels(PORTION_PRICE_LABEL)
 
 /** Every field a card element (or a rule's trigger condition) can bind to. All of them come from the
  * product database now (see mergeProductRow.ts's productToRow) — Naam and Weegschaalcode exactly as
- * directly as Prijs per kilo or the derived EU/Niet-EU — so a design never depends on import order or
- * timing; every field is assignable from the moment you start designing.
- * The legacy "Tekst 1"/"Tekst 2" aliases (see mergeProductRow.ts) are deliberately left out here —
- * they still resolve for designs bound to them, but new bindings should only ever pick the current
- * "Top tekst"/"Tekst onder" labels. */
+ * directly as Prijs per kilo or the derived EU/Niet-EU landbouw — so a design never depends on import
+ * order or timing; every field is assignable from the moment you start designing.
+ * The legacy "Tekst 1"/"Tekst 2" and bare "EU/Niet-EU" labels (see mergeProductRow.ts) are deliberately
+ * left out here — they still resolve for designs already bound to them, but new bindings should only
+ * ever pick the current labels below. */
 export const AVAILABLE_FIELDS = [
   PRODUCT_FIELD_LABELS.name,
   PRODUCT_FIELD_LABELS.orderNumber,
@@ -25,7 +31,6 @@ export const AVAILABLE_FIELDS = [
   PRODUCT_FIELD_LABELS.text2,
   PRODUCT_FIELD_LABELS.countryOfOrigin,
   PRODUCT_FIELD_LABELS.soldPer,
-  EU_STATUS_LABEL,
   EU_STATUS_LANDBOUW_LABEL,
   PRODUCT_FIELD_LABELS.isPromotion,
   PRODUCT_FIELD_LABELS.soldByWeight,
@@ -33,6 +38,7 @@ export const AVAILABLE_FIELDS = [
   PRICE_PER_KG_LABEL,
   PRICE_SPLIT_LABELS.whole,
   PRICE_SPLIT_LABELS.cents,
+  PRICE_PER_KG_DISPLAY_LABEL,
   PORTION_PRICE_LABEL,
   PORTION_PRICE_SPLIT_LABELS.whole,
   PORTION_PRICE_SPLIT_LABELS.cents

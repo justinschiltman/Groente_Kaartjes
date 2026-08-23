@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useProductStore } from '@renderer/state/productStore'
+import { parseDecimalNl } from '@shared/format'
 import type { MultiValueFieldKey } from '@shared/types/product'
 import MultiOptionField from './MultiOptionField'
 
@@ -63,8 +64,8 @@ function ProductEditModal({ productId, onClose }: ProductEditModalProps): React.
       updateProduct(productId, { pricePerKg: null })
       return
     }
-    const parsed = Number(priceText.replace(',', '.'))
-    if (Number.isNaN(parsed)) {
+    const parsed = parseDecimalNl(priceText)
+    if (parsed === null) {
       setPriceText(product?.pricePerKg === null || product?.pricePerKg === undefined ? '' : String(product.pricePerKg))
       return
     }
@@ -76,12 +77,12 @@ function ProductEditModal({ productId, onClose }: ProductEditModalProps): React.
       updateProduct(productId, { weightGrams: null })
       return
     }
-    const parsed = Math.max(0, Math.round(Number(weightText.replace(',', '.'))))
-    if (Number.isNaN(parsed)) {
+    const parsed = parseDecimalNl(weightText)
+    if (parsed === null) {
       setWeightText(product?.weightGrams === null || product?.weightGrams === undefined ? '' : String(product.weightGrams))
       return
     }
-    updateProduct(productId, { weightGrams: parsed })
+    updateProduct(productId, { weightGrams: Math.max(0, Math.round(parsed)) })
   }
 
   function handleDelete(): void {
