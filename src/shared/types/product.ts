@@ -121,3 +121,14 @@ export interface ProductImportRow {
   /** The weight of one sold portion in grams — see Product.weightGrams. */
   weightGrams?: number
 }
+
+/** Result of a "Producten importeren" pick — always one of exactly these outcomes, so the renderer
+ * never has to guess why nothing happened (matches the canceled/error/success shape ExportPdfResult
+ * already uses). skippedRowCount counts data rows that had no recognizable Bestelnummer and so
+ * couldn't be imported (Bestelnummer is the only required column). */
+export interface ProductImportResult {
+  canceled: boolean
+  rows?: ProductImportRow[]
+  skippedRowCount?: number
+  error?: string
+}

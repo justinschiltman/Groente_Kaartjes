@@ -15,6 +15,7 @@ function ProductsPage(): React.JSX.Element {
   const [editingProductId, setEditingProductId] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
   const [importSummary, setImportSummary] = useState<string | null>(null)
+  const [importError, setImportError] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -32,9 +33,28 @@ function ProductsPage(): React.JSX.Element {
   async function handleImport(): Promise<void> {
     setImporting(true)
     setImportSummary(null)
+    setImportError(null)
     try {
-      const rows = await window.api.importProducts()
-      if (!rows) return
+      const result = await window.api.importProducts()
+      if (result.canceled) return
+      if (result.error) {
+        setImportError(result.error)
+        return
+      }
+      const rows = result.rows ?? []
+      const skipped = result.skippedRowCount ?? 0
+
+      if (rows.length === 0 && skipped > 0) {
+        setImportError(
+          `Geen enkele rij herkend (${skipped} rij(en) overgeslagen). Controleer of de kolom "Bestelnummer" bestaat en die naam heeft — dat is de enige verplichte kolom.`
+        )
+        return
+      }
+      if (rows.length === 0) {
+        setImportError('Dit Excel-bestand bevat geen productrijen om te importeren.')
+        return
+      }
+
       let created = 0
       let updated = 0
       for (const row of rows) {
@@ -42,7 +62,10 @@ function ProductsPage(): React.JSX.Element {
         if (outcome === 'created') created++
         else updated++
       }
-      setImportSummary(`${created} nieuw, ${updated} bijgewerkt (${rows.length} rijen verwerkt) — allemaal op 1 kaartje gezet.`)
+      const skippedNote = skipped > 0 ? `, ${skipped} rij(en) overgeslagen (geen Bestelnummer)` : ''
+      setImportSummary(`${created} nieuw, ${updated} bijgewerkt (${rows.length} rijen verwerkt${skippedNote}) — allemaal op 1 kaartje gezet.`)
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : 'Onbekende fout bij het importeren.')
     } finally {
       setImporting(false)
     }
@@ -58,8 +81,9 @@ function ProductsPage(): React.JSX.Element {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <button type="button" onClick={handleImport} disabled={importing}>
-          {importing ? 'Bezig…' : 'Excel importeren'}
+        <button type="button" className={importing ? 'products-import-button importing' : 'products-import-button'} onClick={handleImport} disabled={importing}>
+          {importing && <span className="spinner" aria-hidden="true" />}
+          {importing ? 'Bezig met importeren…' : 'Excel importeren'}
         </button>
         <button type="button" onClick={handleAdd}>
           + Product
@@ -70,7 +94,15 @@ function ProductsPage(): React.JSX.Element {
         <ProcessButton />
       </div>
 
-      {importSummary && <p className="products-import-summary">{importSummary}</p>}
+      {importSummary && <p className="products-import-summary">✓ {importSummary}</p>}
+      {importError && (
+        <p className="products-import-error">
+          ⚠ {importError}
+          <button type="button" className="products-import-error-dismiss" onClick={() => setImportError(null)} title="Sluiten">
+            ✕
+          </button>
+        </p>
+      )}
 
       {products.length === 0 ? (
         <p className="empty-hint">Nog geen producten. Voeg er een toe of importeer een Excel-bestand.</p>
