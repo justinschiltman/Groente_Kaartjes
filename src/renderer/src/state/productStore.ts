@@ -49,6 +49,29 @@ function withFavorited(field: MultiValueField, value: string): MultiValueField {
   return { options, favorite: existing ?? trimmed }
 }
 
+/** Same as withFavorited, but lets one imported cell seed several saved options at once by splitting
+ * on ";" (e.g. "Zoet en sappig; Nu in de aanbieding") — every part is added (in the order given, after
+ * any options already on the field), and the FIRST part becomes the favorite. A cell with no ";"
+ * splits into a single part, so this is a strict superset of withFavorited: existing single-value
+ * imports behave identically to before. */
+function withFavoritedMulti(field: MultiValueField, rawText: string): MultiValueField {
+  const parts = rawText
+    .split(';')
+    .map((part) => part.trim())
+    .filter(Boolean)
+  if (parts.length === 0) return field
+  let options = field.options
+  for (const part of parts) {
+    if (!options.some((o) => normalize(o) === normalize(part))) options = [...options, part]
+  }
+  const favorite = options.find((o) => normalize(o) === normalize(parts[0])) ?? parts[0]
+  return { options, favorite }
+}
+
+function multiFieldFromImport(rawText: string | undefined): MultiValueField {
+  return rawText ? withFavoritedMulti(createMultiValueField(), rawText) : createMultiValueField()
+}
+
 interface ProductState {
   products: Product[]
 
@@ -133,10 +156,10 @@ export const useProductStore = create<ProductState>((set, get) => {
           ...p,
           name: data.name?.trim() || p.name,
           scaleCode: data.scaleCode?.trim() || p.scaleCode,
-          text1: data.text1 ? withFavorited(p.text1, data.text1) : p.text1,
-          text2: data.text2 ? withFavorited(p.text2, data.text2) : p.text2,
-          countryOfOrigin: data.countryOfOrigin ? withFavorited(p.countryOfOrigin, data.countryOfOrigin) : p.countryOfOrigin,
-          soldPer: data.soldPer ? withFavorited(p.soldPer, data.soldPer) : p.soldPer,
+          text1: data.text1 ? withFavoritedMulti(p.text1, data.text1) : p.text1,
+          text2: data.text2 ? withFavoritedMulti(p.text2, data.text2) : p.text2,
+          countryOfOrigin: data.countryOfOrigin ? withFavoritedMulti(p.countryOfOrigin, data.countryOfOrigin) : p.countryOfOrigin,
+          soldPer: data.soldPer ? withFavoritedMulti(p.soldPer, data.soldPer) : p.soldPer,
           quantity: 1,
           isPromotion: data.isPromotion ?? p.isPromotion,
           soldByWeight: data.soldByWeight ?? p.soldByWeight,
@@ -152,10 +175,10 @@ export const useProductStore = create<ProductState>((set, get) => {
         name: data.name?.trim() ?? '',
         orderNumber: data.orderNumber.trim(),
         scaleCode: data.scaleCode?.trim() ?? '',
-        text1: createMultiValueField(data.text1),
-        text2: createMultiValueField(data.text2),
-        countryOfOrigin: createMultiValueField(data.countryOfOrigin),
-        soldPer: createMultiValueField(data.soldPer),
+        text1: multiFieldFromImport(data.text1),
+        text2: multiFieldFromImport(data.text2),
+        countryOfOrigin: multiFieldFromImport(data.countryOfOrigin),
+        soldPer: multiFieldFromImport(data.soldPer),
         quantity: 1,
         isPromotion: data.isPromotion ?? false,
         soldByWeight: data.soldByWeight ?? false,
