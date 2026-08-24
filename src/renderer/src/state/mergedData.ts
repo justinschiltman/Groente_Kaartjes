@@ -1,12 +1,6 @@
 import { EU_STATUS_LANDBOUW_LABEL } from '@shared/euCountries'
 import { currencySplitLabels } from '@shared/format'
-import {
-  PORTION_PRICE_LABEL,
-  PRICE_PER_KG_DISPLAY_LABEL,
-  PRICE_PER_KG_LABEL,
-  WEIGHT_GRAMS_LABEL,
-  productToRow
-} from '@shared/mergeProductRow'
+import { PORTION_PRICE_LABEL, PRICE_PER_KG_LABEL, WEIGHT_GRAMS_LABEL, productToRow } from '@shared/mergeProductRow'
 import { PRODUCT_FIELD_LABELS } from '@shared/types/product'
 import type { DataRow } from '@shared/types/data'
 import type { Product } from '@shared/types/product'
@@ -38,7 +32,6 @@ export const AVAILABLE_FIELDS = [
   PRICE_PER_KG_LABEL,
   PRICE_SPLIT_LABELS.whole,
   PRICE_SPLIT_LABELS.cents,
-  PRICE_PER_KG_DISPLAY_LABEL,
   PORTION_PRICE_LABEL,
   PORTION_PRICE_SPLIT_LABELS.whole,
   PORTION_PRICE_SPLIT_LABELS.cents

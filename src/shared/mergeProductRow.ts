@@ -4,10 +4,13 @@ import { PRODUCT_FIELD_LABELS } from './types/product'
 import type { Product } from './types/product'
 import type { DataRow } from './types/data'
 
+/** Always pre-formatted with its unit, e.g. "€ 22,90 kg" — this used to be the raw number (requiring a
+ * separate Opmaak: Bedrag (€) step to read correctly, and even then never showing "kg"), and a design
+ * bound to it kept showing a bare "22.9". A raw-number sibling field was tried too ("Prijs per kilo
+ * (met eenheid)") but that just meant picking the wrong one reproduced the same bug — so this label
+ * itself now always resolves fully formatted, and there's only the one field. The whole-euro/cents
+ * split fields below are unaffected: they read product.pricePerKg directly, not this row value. */
 export const PRICE_PER_KG_LABEL = 'Prijs per kilo'
-/** Prijs per kilo pre-formatted with its unit, e.g. "€ 22,90 kg" — for a reference-price display that
- * should never need a separate Opmaak step to read correctly. */
-export const PRICE_PER_KG_DISPLAY_LABEL = 'Prijs per kilo (met eenheid)'
 /** The portion weight as display text (e.g. "250 gram") — see Product.weightGrams. */
 export const WEIGHT_GRAMS_LABEL = 'Gewicht (gram)'
 /** The computed price for one portion: pricePerKg / 1000 * weightGrams, formatted as "€ 1,49". */
@@ -47,14 +50,13 @@ export function productToRow(product: Product): DataRow {
     [EU_STATUS_LANDBOUW_LABEL]: deriveEuStatusLandbouw(product.countryOfOrigin.favorite) || null,
     [PRODUCT_FIELD_LABELS.isPromotion]: product.isPromotion ? BOOLEAN_LABELS.true : BOOLEAN_LABELS.false,
     [PRODUCT_FIELD_LABELS.soldByWeight]: product.soldByWeight ? BOOLEAN_LABELS.true : BOOLEAN_LABELS.false,
-    [PRICE_PER_KG_LABEL]: product.pricePerKg
+    [PRICE_PER_KG_LABEL]: product.pricePerKg === null ? null : `${formatCurrencyNl(product.pricePerKg)} kg`
   }
   if (product.pricePerKg !== null) {
     const { whole, cents } = currencySplitLabels(PRICE_PER_KG_LABEL)
     const parts = splitCurrencyParts(product.pricePerKg)
     row[whole] = parts.whole
     row[cents] = parts.cents
-    row[PRICE_PER_KG_DISPLAY_LABEL] = `${formatCurrencyNl(product.pricePerKg)} kg`
   }
   // weightGrams only means anything while soldByWeight is true — gating here means a stale gram
   // amount left over from a previous week never resurfaces on a card that's now sold per piece.
