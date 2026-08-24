@@ -94,9 +94,11 @@ interface ProductState {
    * everything in it" by default; price/actie/eenheid are overwritten when the sheet provides them. */
   upsertByOrderNumber: (data: ProductImportRow) => 'created' | 'updated'
 
-  /** After a successful "Verwerken": clears quantity/isPromotion/soldByWeight/pricePerKg on exactly
-   * the given products (the ones actually rendered) so last week's batch is never reprinted by
-   * accident, while any skipped (incomplete) products keep their in-progress values untouched. */
+  /** After a successful "Verwerken": clears quantity (so last week's batch is never reprinted by
+   * accident) and isPromotion (a promotion is assumed to be a one-week thing) on exactly the given
+   * products — the ones actually rendered. soldByWeight/pricePerKg/weightGrams are deliberately left
+   * untouched: they rarely change week to week, so wiping them would just mean re-typing the same
+   * values again next time. Any skipped (incomplete) product keeps all its in-progress values untouched. */
   resetProcessed: (ids: string[]) => void
 }
 
@@ -197,9 +199,7 @@ export const useProductStore = create<ProductState>((set, get) => {
       const now = new Date().toISOString()
       set({
         products: get().products.map((p) =>
-          idSet.has(p.id)
-            ? { ...p, quantity: 0, isPromotion: false, soldByWeight: false, pricePerKg: null, weightGrams: null, updatedAt: now }
-            : p
+          idSet.has(p.id) ? { ...p, quantity: 0, isPromotion: false, updatedAt: now } : p
         )
       })
       persistCurrent()

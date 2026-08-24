@@ -24,23 +24,30 @@ export interface Product {
   countryOfOrigin: MultiValueField
   soldPer: MultiValueField
   /** How many cards of this product to generate on the next "Verwerken" — the weekly work list.
-   * Reset to 0 (along with pricePerKg/isPromotion/soldByWeight) once those cards are processed, so
-   * last week's batch is never accidentally reprinted. */
+   * Reset to 0 (along with isPromotion) once those cards are processed, so last week's batch is never
+   * accidentally reprinted. Unlike isPromotion, soldByWeight/pricePerKg/weightGrams are NOT reset —
+   * they usually don't change week to week, so re-typing them every time would just be busywork. */
   quantity: number
   /** Whether this week's card should use a promotion ("actie") design. Along with soldByWeight, this
-   * is what a template's triggerConditions match against — see shared/ruleEngine.ts. */
+   * is what a template's triggerConditions match against — see shared/ruleEngine.ts. Reset to false
+   * once this product's cards are processed (see productStore.ts's resetProcessed) — a promotion is
+   * assumed to be a one-week thing unless explicitly turned back on, unlike soldByWeight/pricePerKg/
+   * weightGrams below, which persist untouched. */
   isPromotion: boolean
-  /** Sold by weight (true) vs. per piece (false) this week — the other half of the design trigger,
-   * independent of isPromotion (see PRODUCT_FIELD_LABELS.soldByWeight, "Per gewicht"). */
+  /** Sold by weight (true) vs. per piece (false) — the other half of the design trigger, independent
+   * of isPromotion (see PRODUCT_FIELD_LABELS.soldByWeight, "Per gewicht"). Persists across "Verwerken"
+   * runs (not reset) since it's rarely different from one week to the next for a given product. */
   soldByWeight: boolean
-  /** This week's price per kilo, or null when not (yet) set. See format.ts's splitCurrencyParts for
-   * how a bound design shows this as one amount, or as separate whole-euro/cents parts. */
+  /** The current price per kilo, or null when not (yet) set. Persists across "Verwerken" runs (not
+   * reset) so it only needs updating when it actually changes, not every single week. See format.ts's
+   * splitCurrencyParts for how a bound design shows this as one amount, or as separate whole-euro/cents
+   * parts. */
   pricePerKg: number | null
   /** The weight of one sold portion in grams (e.g. 100/250/500), only meaningful — and only editable
    * in the UI — while soldByWeight is true. Drives the computed "price at this weight" field in
-   * mergeProductRow.ts (pricePerKg / 1000 * weightGrams). Kept even if soldByWeight is later
-   * unchecked, same as other week-specific fields, but mergeProductRow.ts only surfaces it while
-   * soldByWeight is true so a stale value never leaks onto a per-piece card. */
+   * mergeProductRow.ts (pricePerKg / 1000 * weightGrams). Persists across "Verwerken" runs and even
+   * across soldByWeight being unchecked, but mergeProductRow.ts only surfaces it while soldByWeight is
+   * true so a stale value never leaks onto a per-piece card. */
   weightGrams: number | null
   createdAt: string
   updatedAt: string
