@@ -10,6 +10,7 @@ function ProductsPage(): React.JSX.Element {
   const addProduct = useProductStore((state) => state.addProduct)
   const updateProduct = useProductStore((state) => state.updateProduct)
   const upsertByOrderNumber = useProductStore((state) => state.upsertByOrderNumber)
+  const resetAllQuantities = useProductStore((state) => state.resetAllQuantities)
 
   const [search, setSearch] = useState('')
   const [editingProductId, setEditingProductId] = useState<string | null>(null)
@@ -28,6 +29,12 @@ function ProductsPage(): React.JSX.Element {
 
   function handleAdd(): void {
     setEditingProductId(addProduct())
+  }
+
+  function handleResetAll(): void {
+    if (orderedCount === 0) return
+    if (!window.confirm(`Aantal kaartjes voor alle ${orderedCount} klaarstaande product(en) op 0 zetten?`)) return
+    resetAllQuantities()
   }
 
   async function handleImport(): Promise<void> {
@@ -87,6 +94,14 @@ function ProductsPage(): React.JSX.Element {
         </button>
         <button type="button" onClick={handleAdd}>
           + Product
+        </button>
+        <button
+          type="button"
+          onClick={handleResetAll}
+          disabled={orderedCount === 0}
+          title="Zet het aantal kaartjes voor ieder product terug op 0 — handig na een grote catalogus-import om weer met een schone lei te beginnen."
+        >
+          Alles op 0 zetten
         </button>
         <span className="products-summary">
           {orderedCount} product(en) klaar, {totalCards} kaartje(s) in totaal

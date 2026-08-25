@@ -100,6 +100,13 @@ interface ProductState {
    * untouched: they rarely change week to week, so wiping them would just mean re-typing the same
    * values again next time. Any skipped (incomplete) product keeps all its in-progress values untouched. */
   resetProcessed: (ids: string[]) => void
+
+  /** Sets every product's quantity to 0 in one go. Importing always puts every matched/created product
+   * at "1 kaartje" by design (see upsertByOrderNumber) — right after a big catalog-building import
+   * (hundreds of rows, most not meant to be printed this week) that leaves everything "ready" at once,
+   * which is exactly what makes "Verwerken" warn about every product missing weekly fields it hasn't
+   * gotten yet. This is the fast way back to a clean slate to then pick just what's actually wanted. */
+  resetAllQuantities: () => void
 }
 
 export const useProductStore = create<ProductState>((set, get) => {
@@ -201,6 +208,14 @@ export const useProductStore = create<ProductState>((set, get) => {
         products: get().products.map((p) =>
           idSet.has(p.id) ? { ...p, quantity: 0, isPromotion: false, updatedAt: now } : p
         )
+      })
+      persistCurrent()
+    },
+
+    resetAllQuantities: () => {
+      const now = new Date().toISOString()
+      set({
+        products: get().products.map((p) => (p.quantity === 0 ? p : { ...p, quantity: 0, updatedAt: now }))
       })
       persistCurrent()
     }
