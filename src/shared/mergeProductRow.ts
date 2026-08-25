@@ -29,6 +29,15 @@ const LEGACY_TEXT_LABELS = { text1: 'Tekst 1', text2: 'Tekst 2' } as const
 
 const BOOLEAN_LABELS = { true: 'Ja', false: 'Nee' }
 
+/** Derives "Verkocht per" straight from soldByWeight/weightGrams — "per stuk" when sold by piece,
+ * "per 250 gram" (etc.) once a weight-sold product's amount is filled in, or null while it isn't yet.
+ * Used both for the actual card-bound value (productToRow) and for the read-only preview shown next to
+ * the Gewicht column in ProductsPage, so the two can never drift apart. */
+export function deriveSoldPer(product: Pick<Product, 'soldByWeight' | 'weightGrams'>): string | null {
+  if (!product.soldByWeight) return 'per stuk'
+  return product.weightGrams !== null ? `per ${product.weightGrams} gram` : null
+}
+
 /**
  * Turns a product into the field-labeled row shape that bindingKey/resolveBoundText/the rule engine
  * all read from — the single source every card design and export ultimately binds against, regardless
@@ -45,7 +54,11 @@ export function productToRow(product: Product): DataRow {
     [LEGACY_TEXT_LABELS.text1]: product.text1.favorite || null,
     [LEGACY_TEXT_LABELS.text2]: product.text2.favorite || null,
     [PRODUCT_FIELD_LABELS.countryOfOrigin]: product.countryOfOrigin.favorite || null,
-    [PRODUCT_FIELD_LABELS.soldPer]: product.soldPer.favorite || null,
+    // Derived from soldByWeight/weightGrams rather than product.soldPer (a manually-typed field that
+    // used to require re-typing "per stuk"/"per 250 gram" on every single product) — soldByWeight
+    // already says whether it's sold loose by weight or per piece, and weightGrams already says how
+    // much, so the correct phrasing here was always fully implied by those two, never a separate fact.
+    [PRODUCT_FIELD_LABELS.soldPer]: deriveSoldPer(product),
     [EU_STATUS_LABEL]: deriveEuStatusLandbouw(product.countryOfOrigin.favorite) || null,
     [EU_STATUS_LANDBOUW_LABEL]: deriveEuStatusLandbouw(product.countryOfOrigin.favorite) || null,
     [PRODUCT_FIELD_LABELS.isPromotion]: product.isPromotion ? BOOLEAN_LABELS.true : BOOLEAN_LABELS.false,

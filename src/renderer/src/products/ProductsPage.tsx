@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useProductStore } from '@renderer/state/productStore'
 import { parseDecimalNl } from '@shared/format'
+import { deriveSoldPer } from '@shared/mergeProductRow'
 import type { Product } from '@shared/types/product'
 import ProcessButton from '../export/ProcessButton'
 import ProductEditModal from './ProductEditModal'
@@ -137,7 +138,7 @@ function ProductsPage(): React.JSX.Element {
                 <th>Top tekst</th>
                 <th>Tekst onder</th>
                 <th>Land van herkomst</th>
-                <th>Verkocht per</th>
+                <th title="Wordt automatisch bepaald op basis van Per gewicht/Gewicht — niet meer los in te vullen.">Verkocht per</th>
               </tr>
             </thead>
             <tbody>
@@ -275,7 +276,7 @@ function ProductRow({ product, onOpen, onUpdate }: ProductRowProps): React.JSX.E
       <td>{product.text1.favorite}</td>
       <td>{product.text2.favorite}</td>
       <td>{product.countryOfOrigin.favorite}</td>
-      <td>{product.soldPer.favorite}</td>
+      <td>{deriveSoldPer(product) ?? <span className="empty-hint">—</span>}</td>
     </tr>
   )
 }

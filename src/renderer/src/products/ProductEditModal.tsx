@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useProductStore } from '@renderer/state/productStore'
 import { parseDecimalNl } from '@shared/format'
+import { deriveSoldPer } from '@shared/mergeProductRow'
 import type { MultiValueFieldKey } from '@shared/types/product'
 import MultiOptionField from './MultiOptionField'
 
@@ -9,11 +10,12 @@ interface ProductEditModalProps {
   onClose: () => void
 }
 
+// "Verkocht per" used to be here too, as a manually-typed MultiOptionField — it's now derived
+// automatically from Per gewicht/Gewicht (see deriveSoldPer) and shown as a read-only line instead.
 const MULTI_FIELD_CONFIG: { key: MultiValueFieldKey; label: string }[] = [
   { key: 'text1', label: 'Top tekst' },
   { key: 'text2', label: 'Tekst onder' },
-  { key: 'countryOfOrigin', label: 'Land van herkomst' },
-  { key: 'soldPer', label: 'Verkocht per' }
+  { key: 'countryOfOrigin', label: 'Land van herkomst' }
 ]
 
 function ProductEditModal({ productId, onClose }: ProductEditModalProps): React.JSX.Element | null {
@@ -196,6 +198,8 @@ function ProductEditModal({ productId, onClose }: ProductEditModalProps): React.
               </label>
             )}
           </div>
+
+          <p className="empty-hint">Verkocht per: {deriveSoldPer(product) ?? '— (vul eerst Gewicht in)'}</p>
 
           {MULTI_FIELD_CONFIG.map(({ key, label }) => (
             <MultiOptionField

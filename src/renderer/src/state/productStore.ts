@@ -4,8 +4,20 @@ import { createDefaultProduct, createMultiValueField } from '@shared/types/produ
 
 const STORAGE_KEY = 'groente-kaartjes:products'
 
+/** The soldByWeight/weightGrams most recently set on ANY product (via the table, the edit modal, or
+ * this same mechanism carrying forward) — used to pre-fill a freshly-added product, since most new
+ * products added in one sitting tend to share the same "sold by weight, usually the same gram amount"
+ * pattern, and re-checking + re-typing it every single time was pure busywork. */
+interface LastUsedDefaults {
+  soldByWeight: boolean
+  weightGrams: number | null
+}
+
+const DEFAULT_LAST_USED: LastUsedDefaults = { soldByWeight: false, weightGrams: null }
+
 interface PersistedProducts {
   products: Product[]
+  lastUsedDefaults: LastUsedDefaults
 }
 
 function loadPersisted(): PersistedProducts {
@@ -16,14 +28,18 @@ function loadPersisted(): PersistedProducts {
       if (parsed && Array.isArray(parsed.products)) {
         // weightGrams was added after products already existed in the wild, so a record saved before
         // that has no such key at all (not even null) — normalize once on load so every reader can
-        // trust `number | null` and never has to special-case `undefined`.
-        return { products: parsed.products.map((p: Product) => ({ ...p, weightGrams: p.weightGrams ?? null })) }
+        // trust `number | null` and never has to special-case `undefined`. Same story for
+        // lastUsedDefaults itself, added later still.
+        return {
+          products: parsed.products.map((p: Product) => ({ ...p, weightGrams: p.weightGrams ?? null })),
+          lastUsedDefaults: parsed.lastUsedDefaults ?? DEFAULT_LAST_USED
+        }
       }
     }
   } catch {
     // Corrupted or unreadable persisted state falls back to an empty catalog rather than crashing.
   }
-  return { products: [] }
+  return { products: [], lastUsedDefaults: DEFAULT_LAST_USED }
 }
 
 function persist(data: PersistedProducts): void {
@@ -74,6 +90,7 @@ function multiFieldFromImport(rawText: string | undefined): MultiValueField {
 
 interface ProductState {
   products: Product[]
+  lastUsedDefaults: LastUsedDefaults
 
   addProduct: () => string
   updateProduct: (
@@ -111,7 +128,7 @@ interface ProductState {
 
 export const useProductStore = create<ProductState>((set, get) => {
   function persistCurrent(): void {
-    persist({ products: get().products })
+    persist({ products: get().products, lastUsedDefaults: get().lastUsedDefaults })
   }
 
   function updateOne(id: string, mutate: (p: Product) => Product): void {
@@ -123,15 +140,29 @@ export const useProductStore = create<ProductState>((set, get) => {
 
   return {
     products: initial.products,
+    lastUsedDefaults: initial.lastUsedDefaults,
 
     addProduct: () => {
-      const fresh = createDefaultProduct()
+      const fresh = { ...createDefaultProduct(), ...get().lastUsedDefaults }
       set({ products: [...get().products, fresh] })
       persistCurrent()
       return fresh.id
     },
 
-    updateProduct: (id, patch) => updateOne(id, (p) => ({ ...p, ...patch, updatedAt: new Date().toISOString() })),
+    updateProduct: (id, patch) => {
+      const now = new Date().toISOString()
+      set((state) => ({
+        products: state.products.map((p) => (p.id === id ? { ...p, ...patch, updatedAt: now } : p)),
+        lastUsedDefaults:
+          patch.soldByWeight !== undefined || patch.weightGrams !== undefined
+            ? {
+                soldByWeight: patch.soldByWeight ?? state.lastUsedDefaults.soldByWeight,
+                weightGrams: patch.weightGrams !== undefined ? patch.weightGrams : state.lastUsedDefaults.weightGrams
+              }
+            : state.lastUsedDefaults
+      }))
+      persistCurrent()
+    },
 
     deleteProduct: (id) => {
       set({ products: get().products.filter((p) => p.id !== id) })
