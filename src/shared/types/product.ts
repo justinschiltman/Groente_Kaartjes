@@ -12,6 +12,14 @@ export function createMultiValueField(initial?: string): MultiValueField {
   return trimmed ? { options: [trimmed], favorite: trimmed } : { options: [], favorite: '' }
 }
 
+/** Inverse of the import side's ";"-splitting (see productStore.ts's withFavoritedMulti) — puts the
+ * favorite first, then every other saved option, joined by "; ". Exporting then re-importing without
+ * editing a cell reproduces the exact same options and favorite. */
+export function multiValueToExportText(field: MultiValueField): string {
+  const rest = field.options.filter((o) => o !== field.favorite)
+  return [field.favorite, ...rest].filter(Boolean).join('; ')
+}
+
 export interface Product {
   id: string
   name: string
@@ -130,5 +138,33 @@ export interface ProductImportResult {
   canceled: boolean
   rows?: ProductImportRow[]
   skippedRowCount?: number
+  error?: string
+}
+
+/**
+ * One row of a full-catalog Excel export (see products:exportExcel) — the same columns
+ * productImport.service.ts recognizes on the way back in, so editing the exported file and
+ * re-importing it round-trips cleanly. "Verkocht per" is deliberately not included: it's fully
+ * computed from soldByWeight/weightGrams (see mergeProductRow.ts's deriveSoldPer) rather than
+ * something to hand-edit, so exporting it as if it were editable data would be misleading.
+ */
+export interface ProductExportRow {
+  orderNumber: string
+  name: string
+  scaleCode: string
+  countryOfOrigin: string
+  text1: string
+  text2: string
+  pricePerKg: number | null
+  isPromotion: boolean
+  soldByWeight: boolean
+  weightGrams: number | null
+}
+
+/** Result of a "Producten exporteren" save — same canceled/error/success shape as the other
+ * file-dialog-backed results in this app (ExportPdfResult, ProductImportResult). */
+export interface ProductExportResult {
+  canceled: boolean
+  filePath?: string
   error?: string
 }

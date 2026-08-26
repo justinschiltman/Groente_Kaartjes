@@ -2,9 +2,25 @@ import { useEffect, useMemo, useState } from 'react'
 import { useProductStore } from '@renderer/state/productStore'
 import { parseDecimalNl } from '@shared/format'
 import { deriveSoldPer } from '@shared/mergeProductRow'
-import type { Product } from '@shared/types/product'
+import { multiValueToExportText } from '@shared/types/product'
+import type { Product, ProductExportRow } from '@shared/types/product'
 import ProcessButton from '../export/ProcessButton'
 import ProductEditModal from './ProductEditModal'
+
+function toExportRow(p: Product): ProductExportRow {
+  return {
+    orderNumber: p.orderNumber,
+    name: p.name,
+    scaleCode: p.scaleCode,
+    countryOfOrigin: multiValueToExportText(p.countryOfOrigin),
+    text1: multiValueToExportText(p.text1),
+    text2: multiValueToExportText(p.text2),
+    pricePerKg: p.pricePerKg,
+    isPromotion: p.isPromotion,
+    soldByWeight: p.soldByWeight,
+    weightGrams: p.weightGrams
+  }
+}
 
 function ProductsPage(): React.JSX.Element {
   const products = useProductStore((state) => state.products)
@@ -18,6 +34,9 @@ function ProductsPage(): React.JSX.Element {
   const [importing, setImporting] = useState(false)
   const [importSummary, setImportSummary] = useState<string | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [exportSummary, setExportSummary] = useState<string | null>(null)
+  const [exportError, setExportError] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -36,6 +55,25 @@ function ProductsPage(): React.JSX.Element {
     if (orderedCount === 0) return
     if (!window.confirm(`Aantal kaartjes voor alle ${orderedCount} klaarstaande product(en) op 0 zetten?`)) return
     resetAllQuantities()
+  }
+
+  async function handleExport(): Promise<void> {
+    setExporting(true)
+    setExportSummary(null)
+    setExportError(null)
+    try {
+      const result = await window.api.exportProducts(products.map(toExportRow))
+      if (result.canceled) return
+      if (result.error) {
+        setExportError(result.error)
+        return
+      }
+      setExportSummary(`${products.length} product(en) opgeslagen${result.filePath ? ` in ${result.filePath}` : ''}.`)
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'Onbekende fout bij het exporteren.')
+    } finally {
+      setExporting(false)
+    }
   }
 
   async function handleImport(): Promise<void> {
@@ -93,6 +131,16 @@ function ProductsPage(): React.JSX.Element {
           {importing && <span className="spinner" aria-hidden="true" />}
           {importing ? 'Bezig met importeren…' : 'Excel importeren'}
         </button>
+        <button
+          type="button"
+          className={exporting ? 'products-import-button importing' : 'products-import-button'}
+          onClick={handleExport}
+          disabled={exporting || products.length === 0}
+          title="Slaat alle producten hieronder op als Excel-bestand, in dezelfde kolommen als bij importeren — handig om in bulk te bewerken en daarna weer te importeren."
+        >
+          {exporting && <span className="spinner" aria-hidden="true" />}
+          {exporting ? 'Bezig met exporteren…' : 'Excel exporteren'}
+        </button>
         <button type="button" onClick={handleAdd}>
           + Product
         </button>
@@ -115,6 +163,15 @@ function ProductsPage(): React.JSX.Element {
         <p className="products-import-error">
           ⚠ {importError}
           <button type="button" className="products-import-error-dismiss" onClick={() => setImportError(null)} title="Sluiten">
+            ✕
+          </button>
+        </p>
+      )}
+      {exportSummary && <p className="products-import-summary">✓ {exportSummary}</p>}
+      {exportError && (
+        <p className="products-import-error">
+          ⚠ {exportError}
+          <button type="button" className="products-import-error-dismiss" onClick={() => setExportError(null)} title="Sluiten">
             ✕
           </button>
         </p>
