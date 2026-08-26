@@ -63,13 +63,14 @@ export function useFabricCanvas(): UseFabricCanvasResult {
     if (!canvas) return
     const template = getActiveTemplate()
     const row = getPreviewRow()
+    const { cardHeightMm } = useProjectStore.getState()
     canvas.getObjects().forEach((obj) => {
       const tagged = obj as TaggedFabricObject
       const element = template.elements.find((el) => el.id === tagged.elementId)
       if (element?.type === 'text') {
         const resolved = resolveBoundText(element, row)
         obj.set('text', resolved !== null ? resolved : element.text)
-        if (obj instanceof Textbox) fitTextToWidth(obj, element, editorUnits)
+        if (obj instanceof Textbox) fitTextToWidth(obj, element, editorUnits, cardHeightMm)
       }
     })
     canvas.requestRenderAll()
@@ -382,7 +383,9 @@ export function useFabricCanvas(): UseFabricCanvasResult {
       const patch = readTextPatch(obj)
       if (Object.keys(patch).length > 0) useProjectStore.getState().updateElement(obj.elementId, patch)
       const element = getActiveTemplate().elements.find((el) => el.id === obj.elementId)
-      if (element?.type === 'text' && obj instanceof Textbox) fitTextToWidth(obj, element, editorUnits)
+      if (element?.type === 'text' && obj instanceof Textbox) {
+        fitTextToWidth(obj, element, editorUnits, useProjectStore.getState().cardHeightMm)
+      }
     })
 
     const handleKeyDown = (event: KeyboardEvent): void => {

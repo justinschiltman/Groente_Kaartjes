@@ -26,13 +26,13 @@ export function createCardRenderer(dpi: number): CardRenderer {
     canvas.backgroundColor = template.backgroundColor
     const sorted = [...template.elements].sort((a, b) => a.zIndex - b.zIndex)
     for (const element of sorted) {
-      const obj = buildFabricObject(element, units)
+      const obj = buildFabricObject(element, units, heightMm)
       if (element.type === 'text') {
         const resolved = resolveBoundText(element, row)
         if (resolved !== null) obj.set('text', resolved)
         // Re-fit after swapping in this row's actual value — the box was already fit once for the
         // template's static/placeholder text, which is generally a different length.
-        if (obj instanceof Textbox) fitTextToWidth(obj, element, units)
+        if (obj instanceof Textbox) fitTextToWidth(obj, element, units, heightMm)
       }
       canvas.add(obj)
     }

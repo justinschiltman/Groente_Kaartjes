@@ -9,6 +9,7 @@ import type { CardElement, ElementPatch, ElementType, TextElement } from '@share
 import { LEGACY_TEXT_LABELS } from '@shared/mergeProductRow'
 import { PRODUCT_FIELD_LABELS } from '@shared/types/product'
 import { getImageElement } from '@renderer/state/assetStore'
+import { useProjectStore } from '@renderer/state/projectStore'
 import { editorUnits, mmToPx, ptToPx, pxToMm, type UnitConverters } from './units'
 
 /** Fabric objects are tagged with the element id they represent, so events can be mapped back to the store. */
@@ -34,9 +35,9 @@ const AUTO_FIT_BINDING_KEYS = new Set<string>([
   LEGACY_TEXT_LABELS.text2
 ])
 
-/** True when every wrapped line fits within the box — checked via Fabric's own cached line-width
- * measurement (`getLineWidth`), so the decision stays pixel-consistent with what actually renders
- * (font metrics, charSpacing, kerning included) instead of re-deriving it independently. */
+/** True when every wrapped line fits within the box width — checked via Fabric's own cached
+ * line-width measurement (`getLineWidth`), so the decision stays pixel-consistent with what actually
+ * renders (font metrics, charSpacing, kerning included) instead of re-deriving it independently. */
 function fitsWidth(textbox: Textbox, boxWidthPx: number): boolean {
   for (let i = 0; i < textbox.textLines.length; i++) {
     if (textbox.getLineWidth(i) > boxWidthPx) return false
@@ -46,44 +47,65 @@ function fitsWidth(textbox: Textbox, boxWidthPx: number): boolean {
 
 /**
  * Shrinks a Textbox's rendered font size — never below MIN_TEXT_FONT_SIZE_PT, never above the
- * element's own configured fontSize — just enough that every wrapped line fits within the element's
- * width. Fixes e.g. a long single-word product name ("Sperziebonen") that has no space to wrap on and
- * would otherwise just overflow past its box. A no-op (full configured size, one fit check) for the
- * common case where the current text already fits.
+ * element's own configured fontSize — just enough to satisfy two independent constraints:
  *
- * Purely a rendering-time adjustment on the live fabric object — never reads or writes the store, so
- * the configured fontSize the property inspector shows is never affected. Always resets to the full
- * configured size before checking, so repeated calls on the same object (e.g. cycling preview
- * products, or rebinding an element away from an auto-fit-eligible field after it was shrunk) never
- * compound a shrink from an already-shrunk state.
+ * 1. For the three free-text fields in AUTO_FIT_BINDING_KEYS, every wrapped line must fit within the
+ *    element's own width. Fixes e.g. a long single-word product name ("Sperziebonen") that has no
+ *    space to wrap on and would otherwise just overflow past its box.
+ * 2. For EVERY text element regardless of binding, the text's total rendered height below its own Y
+ *    position must never exceed the card's own bottom edge. A field outside AUTO_FIT_BINDING_KEYS
+ *    (e.g. "Verkocht per") still wraps normally by width — that part is untouched — but if that
+ *    wrapping pushes a line past the card's physical bottom edge, the card's rasterization hard-clips
+ *    it there with no visible sign anything is missing (e.g. "per 250 gram" wrapping to "per 250" /
+ *    "gram" with too little room below silently loses "gram" on the printed card). This is a data-
+ *    integrity floor, not the cosmetic auto-fit above, so it applies unconditionally.
+ *
+ * A no-op (full configured size, one fit check) for the common case where the current text already
+ * satisfies both. Purely a rendering-time adjustment on the live fabric object — never reads or writes
+ * the store, so the configured fontSize the property inspector shows is never affected. Always resets
+ * to the full configured size before checking, so repeated calls on the same object (e.g. cycling
+ * preview products, or rebinding an element away from an auto-fit-eligible field after it was shrunk)
+ * never compound a shrink from an already-shrunk state.
  */
-export function fitTextToWidth(textbox: Textbox, element: TextElement, units: UnitConverters): void {
+export function fitTextToWidth(textbox: Textbox, element: TextElement, units: UnitConverters, cardHeightMm: number): void {
   const maxFontSizePx = units.ptToPx(element.fontSize)
-  textbox.set({ fontSize: maxFontSizePx })
-  if (!element.bindingKey || !AUTO_FIT_BINDING_KEYS.has(element.bindingKey)) return
-
-  const boxWidthPx = units.mmToPx(element.width)
   const minFontSizePx = units.ptToPx(MIN_TEXT_FONT_SIZE_PT)
+  const autoFitWidth = Boolean(element.bindingKey && AUTO_FIT_BINDING_KEYS.has(element.bindingKey))
+  const boxWidthPx = units.mmToPx(element.width)
+  const maxHeightPx = units.mmToPx(cardHeightMm) - units.mmToPx(element.y)
 
-  if (fitsWidth(textbox, boxWidthPx)) return
+  function fits(): boolean {
+    if (autoFitWidth && !fitsWidth(textbox, boxWidthPx)) return false
+    const renderedHeightPx = textbox.height * (textbox.scaleY ?? 1)
+    return renderedHeightPx <= maxHeightPx
+  }
+
+  textbox.set({ fontSize: maxFontSizePx })
+  if (fits()) return
 
   textbox.set({ fontSize: minFontSizePx })
-  if (!fitsWidth(textbox, boxWidthPx)) return // doesn't fit even at the floor — best effort, leave it there
+  if (!fits()) return // doesn't fit even at the floor — best effort, leave it there
 
   let lo = minFontSizePx
   let hi = maxFontSizePx
   for (let i = 0; i < 15; i++) {
     const mid = (lo + hi) / 2
     textbox.set({ fontSize: mid })
-    if (fitsWidth(textbox, boxWidthPx)) lo = mid
+    if (fits()) lo = mid
     else hi = mid
   }
   textbox.set({ fontSize: lo })
 }
 
 /** `units` defaults to the fixed on-screen editor scale; the export renderer passes its own
- * print-DPI converters so the same element-building logic produces print-accurate pixels. */
-export function buildFabricObject(element: CardElement, units: UnitConverters = editorUnits): TaggedFabricObject {
+ * print-DPI converters so the same element-building logic produces print-accurate pixels.
+ * `cardHeightMm` defaults to the project's current card height — the export renderer passes the
+ * exact height it's rendering at instead, in case that ever diverges from the live store value. */
+export function buildFabricObject(
+  element: CardElement,
+  units: UnitConverters = editorUnits,
+  cardHeightMm: number = useProjectStore.getState().cardHeightMm
+): TaggedFabricObject {
   const { mmToPx, ptToPx } = units
   const common = {
     left: mmToPx(element.x),
@@ -111,7 +133,7 @@ export function buildFabricObject(element: CardElement, units: UnitConverters = 
       // readGeometryPatch below for why this is never baked into height like Rect/Ellipse are).
       scaleY: element.verticalScale ?? 1
     })
-    fitTextToWidth(textbox, element, units)
+    fitTextToWidth(textbox, element, units, cardHeightMm)
     obj = textbox
   } else if (element.type === 'shape' && element.shape === 'rect') {
     const radiusPx = element.cornerRadius ? mmToPx(element.cornerRadius) : 0
