@@ -52,13 +52,18 @@ function fitsWidth(textbox: Textbox, boxWidthPx: number): boolean {
  * 1. For the three free-text fields in AUTO_FIT_BINDING_KEYS, every wrapped line must fit within the
  *    element's own width. Fixes e.g. a long single-word product name ("Sperziebonen") that has no
  *    space to wrap on and would otherwise just overflow past its box.
- * 2. For EVERY text element regardless of binding, the text's total rendered height below its own Y
- *    position must never exceed the card's own bottom edge. A field outside AUTO_FIT_BINDING_KEYS
- *    (e.g. "Verkocht per") still wraps normally by width — that part is untouched — but if that
- *    wrapping pushes a line past the card's physical bottom edge, the card's rasterization hard-clips
- *    it there with no visible sign anything is missing (e.g. "per 250 gram" wrapping to "per 250" /
- *    "gram" with too little room below silently loses "gram" on the printed card). This is a data-
- *    integrity floor, not the cosmetic auto-fit above, so it applies unconditionally.
+ * 2. For EVERY text element regardless of binding, IF it has actually wrapped onto 2+ lines, their
+ *    total rendered height below the element's own Y position must never exceed the card's own bottom
+ *    edge. A field outside AUTO_FIT_BINDING_KEYS (e.g. "Verkocht per") still wraps normally by width
+ *    — that part is untouched — but if that wrapping pushes a line past the card's physical bottom
+ *    edge, the card's rasterization hard-clips it there with no visible sign anything is missing (e.g.
+ *    "per 250 gram" wrapping to "per 250" / "gram" with too little room below silently loses "gram" on
+ *    the printed card). This is a data-integrity floor, not the cosmetic auto-fit above, so it applies
+ *    unconditionally — but ONLY when there's a second line that could go missing. A single line (any
+ *    text with no space to wrap on, e.g. a price's whole-euro digits) is exempt even if its full
+ *    line-box (ascender/descender padding from the font's metrics, not actual ink) technically extends
+ *    past the card edge — that's not content being lost, and a large display price is routinely
+ *    positioned exactly that way on purpose.
  *
  * A no-op (full configured size, one fit check) for the common case where the current text already
  * satisfies both. Purely a rendering-time adjustment on the live fabric object — never reads or writes
@@ -76,6 +81,7 @@ export function fitTextToWidth(textbox: Textbox, element: TextElement, units: Un
 
   function fits(): boolean {
     if (autoFitWidth && !fitsWidth(textbox, boxWidthPx)) return false
+    if (textbox.textLines.length <= 1) return true
     const renderedHeightPx = textbox.height * (textbox.scaleY ?? 1)
     return renderedHeightPx <= maxHeightPx
   }
