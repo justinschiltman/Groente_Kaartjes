@@ -7,6 +7,72 @@ import type { Product, ProductExportRow } from '@shared/types/product'
 import ProcessButton from '../export/ProcessButton'
 import ProductEditModal from './ProductEditModal'
 
+type SortField =
+  | 'name'
+  | 'quantity'
+  | 'isPromotion'
+  | 'soldByWeight'
+  | 'weightGrams'
+  | 'pricePerKg'
+  | 'orderNumber'
+  | 'scaleCode'
+  | 'text1'
+  | 'text2'
+  | 'countryOfOrigin'
+  | 'soldPer'
+
+interface SortState {
+  field: SortField
+  direction: 'asc' | 'desc'
+}
+
+function sortValue(product: Product, field: SortField): string | number | boolean | null {
+  switch (field) {
+    case 'name':
+      return product.name || null
+    case 'quantity':
+      return product.quantity
+    case 'isPromotion':
+      return product.isPromotion
+    case 'soldByWeight':
+      return product.soldByWeight
+    case 'weightGrams':
+      return product.weightGrams
+    case 'pricePerKg':
+      return product.pricePerKg
+    case 'orderNumber':
+      return product.orderNumber || null
+    case 'scaleCode':
+      return product.scaleCode || null
+    case 'text1':
+      return product.text1.favorite || null
+    case 'text2':
+      return product.text2.favorite || null
+    case 'countryOfOrigin':
+      return product.countryOfOrigin.favorite || null
+    case 'soldPer':
+      return deriveSoldPer(product)
+  }
+}
+
+/** Empty/unset values (null, "") always sort last regardless of direction — matches how spreadsheet
+ * apps treat blanks, and avoids every not-yet-filled-in product jumping to the top on a descending
+ * sort. Only the real value comparison flips with direction, so ties (e.g. two products both
+ * unchecked on a boolean column) keep their original relative order either way, same as a
+ * spreadsheet's stable sort. */
+function compareSortValues(a: string | number | boolean | null, b: string | number | boolean | null, direction: 'asc' | 'desc'): number {
+  const aEmpty = a === null || a === ''
+  const bEmpty = b === null || b === ''
+  if (aEmpty && bEmpty) return 0
+  if (aEmpty) return 1
+  if (bEmpty) return -1
+  let cmp: number
+  if (typeof a === 'number' && typeof b === 'number') cmp = a - b
+  else if (typeof a === 'boolean' && typeof b === 'boolean') cmp = a === b ? 0 : a ? 1 : -1
+  else cmp = String(a).localeCompare(String(b), 'nl', { sensitivity: 'base' })
+  return direction === 'asc' ? cmp : -cmp
+}
+
 function toExportRow(p: Product): ProductExportRow {
   return {
     orderNumber: p.orderNumber,
@@ -30,6 +96,7 @@ function ProductsPage(): React.JSX.Element {
   const resetAllQuantities = useProductStore((state) => state.resetAllQuantities)
 
   const [search, setSearch] = useState('')
+  const [sort, setSort] = useState<SortState | null>(null)
   const [editingProductId, setEditingProductId] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
   const [importSummary, setImportSummary] = useState<string | null>(null)
@@ -38,17 +105,22 @@ function ProductsPage(): React.JSX.Element {
   const [exportSummary, setExportSummary] = useState<string | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
 
-  const filtered = useMemo(() => {
+  const visibleProducts = useMemo(() => {
     const query = search.trim().toLowerCase()
-    if (!query) return products
-    return products.filter((p) => p.name.toLowerCase().includes(query) || p.orderNumber.toLowerCase().includes(query))
-  }, [products, search])
+    const matched = query ? products.filter((p) => p.name.toLowerCase().includes(query) || p.orderNumber.toLowerCase().includes(query)) : products
+    if (!sort) return matched
+    return [...matched].sort((a, b) => compareSortValues(sortValue(a, sort.field), sortValue(b, sort.field), sort.direction))
+  }, [products, search, sort])
 
   const orderedCount = products.filter((p) => p.quantity > 0).length
   const totalCards = products.reduce((sum, p) => sum + p.quantity, 0)
 
   function handleAdd(): void {
     setEditingProductId(addProduct())
+  }
+
+  function handleSort(field: SortField): void {
+    setSort((prev) => (prev && prev.field === field ? { field, direction: prev.direction === 'asc' ? 'desc' : 'asc' } : { field, direction: 'asc' }))
   }
 
   function handleResetAll(): void {
@@ -184,22 +256,28 @@ function ProductsPage(): React.JSX.Element {
           <table className="products-table">
             <thead>
               <tr>
-                <th>Naam</th>
-                <th>Aantal kaartjes</th>
-                <th>Actie</th>
-                <th>Per gewicht</th>
-                <th>Gewicht</th>
-                <th>Prijs per kilo</th>
-                <th>Bestelnummer</th>
-                <th>Weegschaalcode</th>
-                <th>Top tekst</th>
-                <th>Tekst onder</th>
-                <th>Land van herkomst</th>
-                <th title="Wordt automatisch bepaald op basis van Per gewicht/Gewicht — niet meer los in te vullen.">Verkocht per</th>
+                <SortableHeader label="Naam" field="name" sort={sort} onSort={handleSort} />
+                <SortableHeader label="Aantal kaartjes" field="quantity" sort={sort} onSort={handleSort} />
+                <SortableHeader label="Actie" field="isPromotion" sort={sort} onSort={handleSort} />
+                <SortableHeader label="Per gewicht" field="soldByWeight" sort={sort} onSort={handleSort} />
+                <SortableHeader label="Gewicht" field="weightGrams" sort={sort} onSort={handleSort} />
+                <SortableHeader label="Prijs per kilo" field="pricePerKg" sort={sort} onSort={handleSort} />
+                <SortableHeader label="Bestelnummer" field="orderNumber" sort={sort} onSort={handleSort} />
+                <SortableHeader label="Weegschaalcode" field="scaleCode" sort={sort} onSort={handleSort} />
+                <SortableHeader label="Top tekst" field="text1" sort={sort} onSort={handleSort} />
+                <SortableHeader label="Tekst onder" field="text2" sort={sort} onSort={handleSort} />
+                <SortableHeader label="Land van herkomst" field="countryOfOrigin" sort={sort} onSort={handleSort} />
+                <SortableHeader
+                  label="Verkocht per"
+                  field="soldPer"
+                  sort={sort}
+                  onSort={handleSort}
+                  title="Wordt automatisch bepaald op basis van Per gewicht/Gewicht — niet meer los in te vullen."
+                />
               </tr>
             </thead>
             <tbody>
-              {filtered.map((product) => (
+              {visibleProducts.map((product) => (
                 <ProductRow
                   key={product.id}
                   product={product}
@@ -207,7 +285,7 @@ function ProductsPage(): React.JSX.Element {
                   onUpdate={(patch) => updateProduct(product.id, patch)}
                 />
               ))}
-              {filtered.length === 0 && (
+              {visibleProducts.length === 0 && (
                 <tr className="products-table-empty-row">
                   <td colSpan={12}>Geen producten gevonden voor &quot;{search}&quot;.</td>
                 </tr>
@@ -221,6 +299,24 @@ function ProductsPage(): React.JSX.Element {
         <ProductEditModal key={editingProductId} productId={editingProductId} onClose={() => setEditingProductId(null)} />
       )}
     </div>
+  )
+}
+
+interface SortableHeaderProps {
+  label: string
+  field: SortField
+  sort: SortState | null
+  onSort: (field: SortField) => void
+  title?: string
+}
+
+function SortableHeader({ label, field, sort, onSort, title }: SortableHeaderProps): React.JSX.Element {
+  const active = sort?.field === field
+  return (
+    <th className="products-th-sortable" onClick={() => onSort(field)} title={title}>
+      {label}
+      <span className="products-sort-indicator">{active ? (sort.direction === 'asc' ? ' ▲' : ' ▼') : ''}</span>
+    </th>
   )
 }
 

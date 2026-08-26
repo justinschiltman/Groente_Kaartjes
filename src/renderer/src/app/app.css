@@ -847,6 +847,20 @@ button {
   color: #5b6b5e;
 }
 
+.products-table th.products-th-sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.products-table th.products-th-sortable:hover {
+  color: #3a7d44;
+}
+
+.products-sort-indicator {
+  display: inline-block;
+  color: #3a7d44;
+}
+
 .products-table tbody tr {
   cursor: pointer;
 }
