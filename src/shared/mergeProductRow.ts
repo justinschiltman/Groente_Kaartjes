@@ -19,7 +19,7 @@ export const PORTION_PRICE_LABEL = 'Prijs bij dit gewicht'
 /** text1/text2 were labeled "Tekst 1"/"Tekst 2" before they became "Top tekst"/"Tekst onder" —
  * existing card elements may still have a bindingKey pointing at the old label, so the row below also
  * carries the same values under these for backward compatibility. */
-const LEGACY_TEXT_LABELS = { text1: 'Tekst 1', text2: 'Tekst 2' } as const
+export const LEGACY_TEXT_LABELS = { text1: 'Tekst 1', text2: 'Tekst 2' } as const
 
 /** EU_STATUS_LABEL ("EU/Niet-EU") used to carry the bare category — that was confusing next to
  * EU_STATUS_LANDBOUW_LABEL's fuller phrase, and no design ever actually wanted the bare version, so

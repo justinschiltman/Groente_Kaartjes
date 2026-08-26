@@ -6,6 +6,8 @@
 // XSS's actual code path is unused — but re-check this pin against newer fabric releases periodically.
 import { Ellipse, FabricImage, FabricObject, Rect, Textbox } from 'fabric'
 import type { CardElement, ElementPatch, ElementType, TextElement } from '@shared/types/template'
+import { LEGACY_TEXT_LABELS } from '@shared/mergeProductRow'
+import { PRODUCT_FIELD_LABELS } from '@shared/types/product'
 import { getImageElement } from '@renderer/state/assetStore'
 import { editorUnits, mmToPx, ptToPx, pxToMm, type UnitConverters } from './units'
 
@@ -19,6 +21,18 @@ export function findObjectByElementId(objects: FabricObject[], id: string): Tagg
 /** Never shrunk past this, no matter how long/wide the text — small enough to fit almost anything,
  * still legible on a printed card. */
 const MIN_TEXT_FONT_SIZE_PT = 6
+
+/** Auto-fit only applies to the free-text fields whose length genuinely varies unpredictably per
+ * product (a name or a marketing blurb) — not computed/short fields like Prijs per kilo or Actie, and
+ * not static (unbound) text, which the designer places and can see and adjust directly. Includes the
+ * pre-rename "Tekst 1"/"Tekst 2" labels so an older template's binding still qualifies. */
+const AUTO_FIT_BINDING_KEYS = new Set<string>([
+  PRODUCT_FIELD_LABELS.name,
+  PRODUCT_FIELD_LABELS.text1,
+  PRODUCT_FIELD_LABELS.text2,
+  LEGACY_TEXT_LABELS.text1,
+  LEGACY_TEXT_LABELS.text2
+])
 
 /** True when every wrapped line fits within the box — checked via Fabric's own cached line-width
  * measurement (`getLineWidth`), so the decision stays pixel-consistent with what actually renders
@@ -40,14 +54,17 @@ function fitsWidth(textbox: Textbox, boxWidthPx: number): boolean {
  * Purely a rendering-time adjustment on the live fabric object — never reads or writes the store, so
  * the configured fontSize the property inspector shows is never affected. Always resets to the full
  * configured size before checking, so repeated calls on the same object (e.g. cycling preview
- * products) never compound a shrink from an already-shrunk state.
+ * products, or rebinding an element away from an auto-fit-eligible field after it was shrunk) never
+ * compound a shrink from an already-shrunk state.
  */
 export function fitTextToWidth(textbox: Textbox, element: TextElement, units: UnitConverters): void {
-  const boxWidthPx = units.mmToPx(element.width)
   const maxFontSizePx = units.ptToPx(element.fontSize)
+  textbox.set({ fontSize: maxFontSizePx })
+  if (!element.bindingKey || !AUTO_FIT_BINDING_KEYS.has(element.bindingKey)) return
+
+  const boxWidthPx = units.mmToPx(element.width)
   const minFontSizePx = units.ptToPx(MIN_TEXT_FONT_SIZE_PT)
 
-  textbox.set({ fontSize: maxFontSizePx })
   if (fitsWidth(textbox, boxWidthPx)) return
 
   textbox.set({ fontSize: minFontSizePx })
