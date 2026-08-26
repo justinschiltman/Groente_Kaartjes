@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useProductStore } from '@renderer/state/productStore'
 import { checkProductsForExport, runExport, type ExportProgress, type IncompleteProduct, type ResolvedCard } from './exportOrchestrator'
 
 type Phase = 'idle' | 'confirm' | 'running' | 'done' | 'error'
@@ -6,6 +7,7 @@ type Phase = 'idle' | 'confirm' | 'running' | 'done' | 'error'
 function ProcessButton(): React.JSX.Element {
   const [phase, setPhase] = useState<Phase>('idle')
   const [pendingCards, setPendingCards] = useState<ResolvedCard[]>([])
+  const [processedCards, setProcessedCards] = useState<ResolvedCard[]>([])
   const [incomplete, setIncomplete] = useState<IncompleteProduct[]>([])
   const [progress, setProgress] = useState<ExportProgress | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -30,6 +32,7 @@ function ProcessButton(): React.JSX.Element {
     setPhase('running')
     setProgress(null)
     setMessage(null)
+    setProcessedCards(cards)
     try {
       const result = await runExport(cards, (p) => setProgress(p))
       if (result.canceled) {
@@ -45,6 +48,14 @@ function ProcessButton(): React.JSX.Element {
       setPhase('error')
       setMessage(error instanceof Error ? error.message : 'Onbekende fout bij verwerken.')
     }
+  }
+
+  // Only resets the processed products' kaartjes-aantal once the user explicitly confirms the batch
+  // actually printed fine — saying "Nee" (or just closing the dialog) leaves every field exactly as
+  // it was, so a failed/aborted print run can be retried without re-entering anything.
+  function confirmDone(succeeded: boolean): void {
+    if (succeeded) useProductStore.getState().resetProcessed(processedCards.map((c) => c.product.id))
+    setPhase('idle')
   }
 
   const totalCards = pendingCards.reduce((sum, c) => sum + c.product.quantity, 0)
@@ -116,11 +127,11 @@ function ProcessButton(): React.JSX.Element {
       )}
 
       {phase === 'done' && (
-        <div className="modal-overlay" onClick={() => setPhase('idle')}>
+        <div className="modal-overlay" onClick={() => confirmDone(false)}>
           <div className="modal export-status-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>PDF geëxporteerd</h2>
-              <button type="button" onClick={() => setPhase('idle')} title="Sluiten">
+              <button type="button" onClick={() => confirmDone(false)} title="Sluiten">
                 ✕
               </button>
             </div>
@@ -129,7 +140,19 @@ function ProcessButton(): React.JSX.Element {
                 Het bestand is opgeslagen{message ? ':' : '.'}
                 {message && <strong className="export-filepath"> {message}</strong>}
               </p>
-              <p className="empty-hint">Verwerkte producten staan weer op 0 kaartjes.</p>
+              <p>Is het gelukt?</p>
+              <p className="empty-hint">
+                Bij “Ja” gaat het aantal kaartjes van deze producten terug naar 0. Bij “Nee” blijft alles
+                ingevuld staan zoals het was.
+              </p>
+              <div className="modal-actions">
+                <button type="button" onClick={() => confirmDone(false)}>
+                  Nee
+                </button>
+                <button type="button" onClick={() => confirmDone(true)}>
+                  Ja
+                </button>
+              </div>
             </div>
           </div>
         </div>

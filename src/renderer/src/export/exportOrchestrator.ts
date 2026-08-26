@@ -4,6 +4,7 @@ import { resolveBoundText } from '@shared/dataBinding'
 import { productToRow } from '@shared/mergeProductRow'
 import { resolveTemplateForRow } from '@shared/ruleEngine'
 import type { Template, TextElement } from '@shared/types/template'
+import { PRODUCT_FIELD_LABELS } from '@shared/types/product'
 import type { Product } from '@shared/types/product'
 import type { ExportPage, ExportPdfResult } from '@shared/types/export'
 import { createCardRenderer } from './renderCard'
@@ -62,6 +63,10 @@ export function checkProductsForExport(): ExportPreflight {
           .filter((el): el is TextElement => el.type === 'text' && Boolean(el.bindingKey))
           .filter((el) => !resolveBoundText(el, row))
           .map((el) => el.bindingKey as string)
+          // "Verkocht per" is fully derived from Gewicht (see deriveSoldPer) and has no input of its
+          // own anymore — telling the user to go fill in "Verkocht per" is a dead end. The only way
+          // it resolves blank is a missing Gewicht, so point at the field they can actually edit.
+          .map((key) => (key === PRODUCT_FIELD_LABELS.soldPer ? 'Gewicht' : key))
       )
     ]
 
@@ -74,11 +79,18 @@ export function checkProductsForExport(): ExportPreflight {
 
 export type ExportOutcome = ExportPdfResult
 
+interface RenderedCard {
+  pngDataUrl: string
+  isPromotion: boolean
+}
+
 /**
- * Renders `quantity` copies of each ready card, 3 per A4 page (the last page simply has whatever's
- * left, never padded), and composes them into one PDF. On success, resets quantity/isPromotion/
- * soldByWeight/pricePerKg on exactly the processed products so this batch is never reprinted by
- * accident next time.
+ * Renders `quantity` copies of each ready card and composes them into one PDF, 3 per A4 page. Actie-
+ * en niet-actie kaartjes worden apart gepagineerd (elke groep krijgt zijn eigen pagina's, nooit
+ * gemengd op één blad) omdat actiekaartjes op ander gekleurd papier worden geprint — binnen elke
+ * groep heeft de laatste pagina simpelweg wat er nog over is, nooit aangevuld met de andere soort.
+ * Does NOT reset quantity/isPromotion on the processed products — that only happens once the user
+ * explicitly confirms the export actually succeeded (see ProcessButton's "Is het gelukt?" step).
  */
 export async function runExport(cards: ResolvedCard[], onProgress?: (progress: ExportProgress) => void): Promise<ExportOutcome> {
   const { cardWidthMm, cardHeightMm } = useProjectStore.getState()
@@ -88,7 +100,7 @@ export async function runExport(cards: ResolvedCard[], onProgress?: (progress: E
   }
 
   const renderer = createCardRenderer(EXPORT_DPI)
-  const pngDataUrls: string[] = []
+  const renderedCards: RenderedCard[] = []
   const total = cards.reduce((sum, c) => sum + c.product.quantity, 0)
   let rendered = 0
 
@@ -96,7 +108,10 @@ export async function runExport(cards: ResolvedCard[], onProgress?: (progress: E
     for (const { product, template } of cards) {
       const row = productToRow(product)
       for (let i = 0; i < product.quantity; i++) {
-        pngDataUrls.push(renderer.renderCardPng(template, row, cardWidthMm, cardHeightMm))
+        renderedCards.push({
+          pngDataUrl: renderer.renderCardPng(template, row, cardWidthMm, cardHeightMm),
+          isPromotion: product.isPromotion
+        })
         rendered++
         onProgress?.({ rendered, total })
         // Yields to the event loop between renders so the progress dialog can actually repaint
@@ -109,13 +124,11 @@ export async function runExport(cards: ResolvedCard[], onProgress?: (progress: E
   }
 
   const pages: ExportPage[] = []
-  for (let i = 0; i < pngDataUrls.length; i += CARDS_PER_PAGE) {
-    pages.push({ cards: pngDataUrls.slice(i, i + CARDS_PER_PAGE).map((pngDataUrl) => ({ pngDataUrl })) })
+  for (const group of [renderedCards.filter((c) => !c.isPromotion), renderedCards.filter((c) => c.isPromotion)]) {
+    for (let i = 0; i < group.length; i += CARDS_PER_PAGE) {
+      pages.push({ cards: group.slice(i, i + CARDS_PER_PAGE).map((c) => ({ pngDataUrl: c.pngDataUrl })) })
+    }
   }
 
-  const result = await window.api.exportPdf({ cardWidthMm, cardHeightMm, pages })
-  if (!result.canceled && !result.error) {
-    useProductStore.getState().resetProcessed(cards.map((c) => c.product.id))
-  }
-  return result
+  return window.api.exportPdf({ cardWidthMm, cardHeightMm, pages })
 }
