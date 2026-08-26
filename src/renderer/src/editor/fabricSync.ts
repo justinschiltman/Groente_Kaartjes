@@ -5,7 +5,7 @@
 // serialization anywhere (export uses canvas.toDataURL() rasterization, see the Phase 5 plan), so the
 // XSS's actual code path is unused — but re-check this pin against newer fabric releases periodically.
 import { Ellipse, FabricImage, FabricObject, Rect, Textbox } from 'fabric'
-import type { CardElement, ElementPatch, ElementType } from '@shared/types/template'
+import type { CardElement, ElementPatch, ElementType, TextElement } from '@shared/types/template'
 import { getImageElement } from '@renderer/state/assetStore'
 import { editorUnits, mmToPx, ptToPx, pxToMm, type UnitConverters } from './units'
 
@@ -14,6 +14,54 @@ export type TaggedFabricObject = FabricObject & { elementId: string; elementType
 
 export function findObjectByElementId(objects: FabricObject[], id: string): TaggedFabricObject | undefined {
   return objects.find((obj) => (obj as TaggedFabricObject).elementId === id) as TaggedFabricObject | undefined
+}
+
+/** Never shrunk past this, no matter how long/wide the text — small enough to fit almost anything,
+ * still legible on a printed card. */
+const MIN_TEXT_FONT_SIZE_PT = 6
+
+/** True when every wrapped line fits within the box — checked via Fabric's own cached line-width
+ * measurement (`getLineWidth`), so the decision stays pixel-consistent with what actually renders
+ * (font metrics, charSpacing, kerning included) instead of re-deriving it independently. */
+function fitsWidth(textbox: Textbox, boxWidthPx: number): boolean {
+  for (let i = 0; i < textbox.textLines.length; i++) {
+    if (textbox.getLineWidth(i) > boxWidthPx) return false
+  }
+  return true
+}
+
+/**
+ * Shrinks a Textbox's rendered font size — never below MIN_TEXT_FONT_SIZE_PT, never above the
+ * element's own configured fontSize — just enough that every wrapped line fits within the element's
+ * width. Fixes e.g. a long single-word product name ("Sperziebonen") that has no space to wrap on and
+ * would otherwise just overflow past its box. A no-op (full configured size, one fit check) for the
+ * common case where the current text already fits.
+ *
+ * Purely a rendering-time adjustment on the live fabric object — never reads or writes the store, so
+ * the configured fontSize the property inspector shows is never affected. Always resets to the full
+ * configured size before checking, so repeated calls on the same object (e.g. cycling preview
+ * products) never compound a shrink from an already-shrunk state.
+ */
+export function fitTextToWidth(textbox: Textbox, element: TextElement, units: UnitConverters): void {
+  const boxWidthPx = units.mmToPx(element.width)
+  const maxFontSizePx = units.ptToPx(element.fontSize)
+  const minFontSizePx = units.ptToPx(MIN_TEXT_FONT_SIZE_PT)
+
+  textbox.set({ fontSize: maxFontSizePx })
+  if (fitsWidth(textbox, boxWidthPx)) return
+
+  textbox.set({ fontSize: minFontSizePx })
+  if (!fitsWidth(textbox, boxWidthPx)) return // doesn't fit even at the floor — best effort, leave it there
+
+  let lo = minFontSizePx
+  let hi = maxFontSizePx
+  for (let i = 0; i < 15; i++) {
+    const mid = (lo + hi) / 2
+    textbox.set({ fontSize: mid })
+    if (fitsWidth(textbox, boxWidthPx)) lo = mid
+    else hi = mid
+  }
+  textbox.set({ fontSize: lo })
 }
 
 /** `units` defaults to the fixed on-screen editor scale; the export renderer passes its own
@@ -30,7 +78,7 @@ export function buildFabricObject(element: CardElement, units: UnitConverters = 
   let obj: FabricObject
 
   if (element.type === 'text') {
-    obj = new Textbox(element.text, {
+    const textbox = new Textbox(element.text, {
       ...common,
       width: mmToPx(element.width),
       fontFamily: element.fontFamily,
@@ -46,6 +94,8 @@ export function buildFabricObject(element: CardElement, units: UnitConverters = 
       // readGeometryPatch below for why this is never baked into height like Rect/Ellipse are).
       scaleY: element.verticalScale ?? 1
     })
+    fitTextToWidth(textbox, element, units)
+    obj = textbox
   } else if (element.type === 'shape' && element.shape === 'rect') {
     const radiusPx = element.cornerRadius ? mmToPx(element.cornerRadius) : 0
     obj = new Rect({

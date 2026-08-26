@@ -1,8 +1,8 @@
-import { StaticCanvas } from 'fabric'
+import { StaticCanvas, Textbox } from 'fabric'
 import { resolveBoundText } from '@shared/dataBinding'
 import type { DataRow } from '@shared/types/data'
 import type { Template } from '@shared/types/template'
-import { buildFabricObject } from '../editor/fabricSync'
+import { buildFabricObject, fitTextToWidth } from '../editor/fabricSync'
 import { createUnitConverters } from '../editor/units'
 
 export interface CardRenderer {
@@ -30,6 +30,9 @@ export function createCardRenderer(dpi: number): CardRenderer {
       if (element.type === 'text') {
         const resolved = resolveBoundText(element, row)
         if (resolved !== null) obj.set('text', resolved)
+        // Re-fit after swapping in this row's actual value — the box was already fit once for the
+        // template's static/placeholder text, which is generally a different length.
+        if (obj instanceof Textbox) fitTextToWidth(obj, element, units)
       }
       canvas.add(obj)
     }

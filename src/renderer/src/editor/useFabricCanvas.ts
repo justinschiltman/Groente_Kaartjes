@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Canvas } from 'fabric'
+import { Canvas, Textbox } from 'fabric'
 import type { ImageAsset } from '@renderer/assets/imageLoader'
 import { getActiveTemplate, useProjectStore } from '@renderer/state/projectStore'
 import { useAssetStore } from '@renderer/state/assetStore'
@@ -13,12 +13,13 @@ import {
   applyPatchToFabricObject,
   buildFabricObject,
   findObjectByElementId,
+  fitTextToWidth,
   readGeometryPatch,
   readTextPatch,
   type TaggedFabricObject
 } from './fabricSync'
 import { computeSnapAdjustment, type SnapGuide } from './snapping'
-import { mmToPx } from './units'
+import { editorUnits, mmToPx } from './units'
 
 export interface UseFabricCanvasResult {
   canvasElRef: React.RefObject<HTMLCanvasElement | null>
@@ -68,6 +69,7 @@ export function useFabricCanvas(): UseFabricCanvasResult {
       if (element?.type === 'text') {
         const resolved = resolveBoundText(element, row)
         obj.set('text', resolved !== null ? resolved : element.text)
+        if (obj instanceof Textbox) fitTextToWidth(obj, element, editorUnits)
       }
     })
     canvas.requestRenderAll()
@@ -379,6 +381,8 @@ export function useFabricCanvas(): UseFabricCanvasResult {
       if (!obj.elementId) return
       const patch = readTextPatch(obj)
       if (Object.keys(patch).length > 0) useProjectStore.getState().updateElement(obj.elementId, patch)
+      const element = getActiveTemplate().elements.find((el) => el.id === obj.elementId)
+      if (element?.type === 'text' && obj instanceof Textbox) fitTextToWidth(obj, element, editorUnits)
     })
 
     const handleKeyDown = (event: KeyboardEvent): void => {
