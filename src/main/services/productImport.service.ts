@@ -11,6 +11,10 @@ const COLUMN_ALIASES: Record<keyof ProductImportRow, { aliases: string[]; kind: 
   orderNumber: { aliases: ['bestelnummer', 'ordernummer', 'order nummer', 'artikelnummer'], kind: 'string' },
   name: { aliases: ['naam'], kind: 'string' },
   scaleCode: { aliases: ['weegschaalcode', 'weegschaal code', 'schaalcode', 'plu', 'plu code'], kind: 'string' },
+  supplierCode: {
+    aliases: ['bestelcode (leverancier)', 'bestelcode leverancier', 'bestelcode', 'leverancier bestelcode', 'leverancierscode'],
+    kind: 'string'
+  },
   text1: { aliases: ['top tekst', 'toptekst', 'tekst 1', 'tekst1'], kind: 'string' },
   text2: { aliases: ['tekst onder', 'tekst 2', 'tekst2'], kind: 'string' },
   countryOfOrigin: { aliases: ['land van herkomst', 'herkomst', 'land'], kind: 'string' },

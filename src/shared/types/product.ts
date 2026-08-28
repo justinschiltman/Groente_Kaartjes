@@ -27,6 +27,9 @@ export interface Product {
   /** The code entered at the weighing scale for loose produce — always the same value for a given
    * product, like orderNumber, so it's a plain field rather than a MultiValueField. */
   scaleCode: string
+  /** The supplier's own product/order code (distinct from orderNumber, which is this catalog's own
+   * "GK000N" identifier) — plain field for the same reason as scaleCode. */
+  supplierCode: string
   text1: MultiValueField
   text2: MultiValueField
   countryOfOrigin: MultiValueField
@@ -68,6 +71,7 @@ export function createDefaultProduct(): Product {
     name: '',
     orderNumber: '',
     scaleCode: '',
+    supplierCode: '',
     text1: createMultiValueField(),
     text2: createMultiValueField(),
     countryOfOrigin: createMultiValueField(),
@@ -93,12 +97,13 @@ export type MultiValueFieldKey = (typeof MULTI_VALUE_FIELDS)[number]
  * text1/text2 were labeled "Tekst 1"/"Tekst 2" before — mergeProductRow.ts still emits the merged
  * row under those old labels too, so existing designs bound to them keep resolving unchanged. */
 export const PRODUCT_FIELD_LABELS: Record<
-  'name' | 'orderNumber' | 'scaleCode' | 'isPromotion' | 'soldByWeight' | MultiValueFieldKey,
+  'name' | 'orderNumber' | 'scaleCode' | 'supplierCode' | 'isPromotion' | 'soldByWeight' | MultiValueFieldKey,
   string
 > = {
   name: 'Naam',
   orderNumber: 'Bestelnummer',
   scaleCode: 'Weegschaalcode',
+  supplierCode: 'Bestelcode (leverancier)',
   text1: 'Top tekst',
   text2: 'Tekst onder',
   countryOfOrigin: 'Land van herkomst',
@@ -118,6 +123,7 @@ export interface ProductImportRow {
   orderNumber: string
   name?: string
   scaleCode?: string
+  supplierCode?: string
   text1?: string
   text2?: string
   countryOfOrigin?: string
@@ -152,6 +158,7 @@ export interface ProductExportRow {
   orderNumber: string
   name: string
   scaleCode: string
+  supplierCode: string
   countryOfOrigin: string
   text1: string
   text2: string

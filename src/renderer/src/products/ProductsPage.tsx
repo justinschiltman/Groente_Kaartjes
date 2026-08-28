@@ -16,6 +16,7 @@ type SortField =
   | 'pricePerKg'
   | 'orderNumber'
   | 'scaleCode'
+  | 'supplierCode'
   | 'text1'
   | 'text2'
   | 'countryOfOrigin'
@@ -44,6 +45,8 @@ function sortValue(product: Product, field: SortField): string | number | boolea
       return product.orderNumber || null
     case 'scaleCode':
       return product.scaleCode || null
+    case 'supplierCode':
+      return product.supplierCode || null
     case 'text1':
       return product.text1.favorite || null
     case 'text2':
@@ -78,6 +81,7 @@ function toExportRow(p: Product): ProductExportRow {
     orderNumber: p.orderNumber,
     name: p.name,
     scaleCode: p.scaleCode,
+    supplierCode: p.supplierCode,
     countryOfOrigin: multiValueToExportText(p.countryOfOrigin),
     text1: multiValueToExportText(p.text1),
     text2: multiValueToExportText(p.text2),
@@ -185,7 +189,7 @@ function ProductsPage(): React.JSX.Element {
           else notFound++
         }
         const notFoundNote = notFound > 0 ? `, ${notFound} bestelnummer(s) niet gevonden (overgeslagen, niet aangemaakt)` : ''
-        setImportSummary(`${updated} product(en) bijgewerkt (alleen Naam, Top tekst en Tekst onder)${notFoundNote}.`)
+        setImportSummary(`${updated} product(en) bijgewerkt (alleen Naam, Top tekst, Tekst onder en Bestelcode)${notFoundNote}.`)
       } else {
         let created = 0
         let updated = 0
@@ -253,10 +257,10 @@ function ProductsPage(): React.JSX.Element {
         </button>
         <label
           className="field checkbox-field products-textonly-toggle"
-          title="Werkt alleen bestaande producten bij (matcht op Bestelnummer) en past alleen Naam, Top tekst en Tekst onder aan — Prijs, Actie, Per gewicht, Gewicht, Weegschaalcode en Land van herkomst blijven ongewijzigd. Er worden geen nieuwe producten aangemaakt; een bestelnummer dat nog niet bestaat wordt overgeslagen."
+          title="Werkt alleen bestaande producten bij (matcht op Bestelnummer) en past alleen Naam, Top tekst, Tekst onder en Bestelcode (leverancier) aan — Prijs, Actie, Per gewicht, Gewicht, Weegschaalcode en Land van herkomst blijven ongewijzigd. Er worden geen nieuwe producten aangemaakt; een bestelnummer dat nog niet bestaat wordt overgeslagen."
         >
           <input type="checkbox" checked={textOnlyImport} onChange={(e) => setTextOnlyImport(e.target.checked)} />
-          <span>Alleen Naam/Top tekst/Tekst onder bijwerken</span>
+          <span>Alleen Naam/Top tekst/Tekst onder/Bestelcode bijwerken</span>
         </label>
         <button
           type="button"
@@ -328,6 +332,7 @@ function ProductsPage(): React.JSX.Element {
                 <SortableHeader label="Prijs per kilo" field="pricePerKg" sort={sort} onSort={handleSort} />
                 <SortableHeader label="Bestelnummer" field="orderNumber" sort={sort} onSort={handleSort} />
                 <SortableHeader label="Weegschaalcode" field="scaleCode" sort={sort} onSort={handleSort} />
+                <SortableHeader label="Bestelcode (leverancier)" field="supplierCode" sort={sort} onSort={handleSort} />
                 <SortableHeader label="Top tekst" field="text1" sort={sort} onSort={handleSort} />
                 <SortableHeader label="Tekst onder" field="text2" sort={sort} onSort={handleSort} />
                 <SortableHeader label="Land van herkomst" field="countryOfOrigin" sort={sort} onSort={handleSort} />
@@ -351,7 +356,7 @@ function ProductsPage(): React.JSX.Element {
               ))}
               {visibleProducts.length === 0 && (
                 <tr className="products-table-empty-row">
-                  <td colSpan={12}>Geen producten gevonden voor &quot;{search}&quot;.</td>
+                  <td colSpan={13}>Geen producten gevonden voor &quot;{search}&quot;.</td>
                 </tr>
               )}
             </tbody>
@@ -490,6 +495,7 @@ function ProductRow({ product, onOpen, onUpdate }: ProductRowProps): React.JSX.E
       </td>
       <td>{product.orderNumber}</td>
       <td>{product.scaleCode}</td>
+      <td>{product.supplierCode}</td>
       <td>{product.text1.favorite}</td>
       <td>{product.text2.favorite}</td>
       <td>{product.countryOfOrigin.favorite}</td>

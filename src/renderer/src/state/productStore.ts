@@ -96,7 +96,10 @@ interface ProductState {
   updateProduct: (
     id: string,
     patch: Partial<
-      Pick<Product, 'name' | 'orderNumber' | 'scaleCode' | 'quantity' | 'isPromotion' | 'soldByWeight' | 'pricePerKg' | 'weightGrams'>
+      Pick<
+        Product,
+        'name' | 'orderNumber' | 'scaleCode' | 'supplierCode' | 'quantity' | 'isPromotion' | 'soldByWeight' | 'pricePerKg' | 'weightGrams'
+      >
     >
   ) => void
   deleteProduct: (id: string) => void
@@ -111,16 +114,23 @@ interface ProductState {
    * everything in it" by default; price/actie/eenheid are overwritten when the sheet provides them. */
   upsertByOrderNumber: (data: ProductImportRow) => 'created' | 'updated'
 
-  /** Narrow-scope import for correcting Naam/Top tekst/Tekst onder across an existing catalog without
-   * the collateral risk a full upsertByOrderNumber carries: a re-exported sheet often still has the
-   * Actie/Per gewicht/Prijs/Gewicht columns present but every cell blank (nothing to do with those
-   * fields — the sheet just wasn't about them), and importProductsExcel reads a blank-but-present
-   * boolean column as an explicit "Nee", which would silently reset promotions/eenheid across the
-   * whole catalog. This only ever touches name/text1/text2 (text1/text2 fully REPLACED — not merged
-   * like upsertByOrderNumber — since the point here is correcting wrong text, not accumulating
-   * alternates) on a product that already exists; an orderNumber with no match is reported 'not-found'
-   * rather than creating a new, mostly-empty product. */
-  updateTextFieldsByOrderNumber: (data: { orderNumber: string; name?: string; text1?: string; text2?: string }) => 'updated' | 'not-found'
+  /** Narrow-scope import for correcting Naam/Top tekst/Tekst onder/Bestelcode across an existing
+   * catalog without the collateral risk a full upsertByOrderNumber carries: a re-exported sheet often
+   * still has the Actie/Per gewicht/Prijs/Gewicht columns present but every cell blank (nothing to do
+   * with those fields — the sheet just wasn't about them), and importProductsExcel reads a
+   * blank-but-present boolean column as an explicit "Nee", which would silently reset
+   * promotions/eenheid across the whole catalog. This only ever touches name/text1/text2/supplierCode
+   * (text1/text2 fully REPLACED — not merged like upsertByOrderNumber — since the point here is
+   * correcting wrong text, not accumulating alternates; supplierCode only overwrites when the row
+   * actually has one, same as scaleCode elsewhere) on a product that already exists; an orderNumber
+   * with no match is reported 'not-found' rather than creating a new, mostly-empty product. */
+  updateTextFieldsByOrderNumber: (data: {
+    orderNumber: string
+    name?: string
+    text1?: string
+    text2?: string
+    supplierCode?: string
+  }) => 'updated' | 'not-found'
 
   /** Wipes the ENTIRE catalog first (every product, including price/actie/per-gewicht/quantity — not
    * just the ones in the given rows) and rebuilds it from scratch via upsertByOrderNumber, so this is
@@ -215,6 +225,7 @@ export const useProductStore = create<ProductState>((set, get) => {
           ...p,
           name: data.name?.trim() || p.name,
           scaleCode: data.scaleCode?.trim() || p.scaleCode,
+          supplierCode: data.supplierCode?.trim() || p.supplierCode,
           text1: data.text1 ? withFavoritedMulti(p.text1, data.text1) : p.text1,
           text2: data.text2 ? withFavoritedMulti(p.text2, data.text2) : p.text2,
           countryOfOrigin: data.countryOfOrigin ? withFavoritedMulti(p.countryOfOrigin, data.countryOfOrigin) : p.countryOfOrigin,
@@ -234,6 +245,7 @@ export const useProductStore = create<ProductState>((set, get) => {
         name: data.name?.trim() ?? '',
         orderNumber: data.orderNumber.trim(),
         scaleCode: data.scaleCode?.trim() ?? '',
+        supplierCode: data.supplierCode?.trim() ?? '',
         text1: multiFieldFromImport(data.text1),
         text2: multiFieldFromImport(data.text2),
         countryOfOrigin: multiFieldFromImport(data.countryOfOrigin),
@@ -259,6 +271,7 @@ export const useProductStore = create<ProductState>((set, get) => {
         name: data.name?.trim() || p.name,
         text1: data.text1 ? multiFieldFromImport(data.text1) : p.text1,
         text2: data.text2 ? multiFieldFromImport(data.text2) : p.text2,
+        supplierCode: data.supplierCode?.trim() || p.supplierCode,
         updatedAt: new Date().toISOString()
       }))
       return 'updated'
