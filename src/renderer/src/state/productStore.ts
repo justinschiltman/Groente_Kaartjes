@@ -111,6 +111,17 @@ interface ProductState {
    * everything in it" by default; price/actie/eenheid are overwritten when the sheet provides them. */
   upsertByOrderNumber: (data: ProductImportRow) => 'created' | 'updated'
 
+  /** Narrow-scope import for correcting Naam/Top tekst/Tekst onder across an existing catalog without
+   * the collateral risk a full upsertByOrderNumber carries: a re-exported sheet often still has the
+   * Actie/Per gewicht/Prijs/Gewicht columns present but every cell blank (nothing to do with those
+   * fields — the sheet just wasn't about them), and importProductsExcel reads a blank-but-present
+   * boolean column as an explicit "Nee", which would silently reset promotions/eenheid across the
+   * whole catalog. This only ever touches name/text1/text2 (text1/text2 fully REPLACED — not merged
+   * like upsertByOrderNumber — since the point here is correcting wrong text, not accumulating
+   * alternates) on a product that already exists; an orderNumber with no match is reported 'not-found'
+   * rather than creating a new, mostly-empty product. */
+  updateTextFieldsByOrderNumber: (data: { orderNumber: string; name?: string; text1?: string; text2?: string }) => 'updated' | 'not-found'
+
   /** After a successful "Verwerken": clears quantity (so last week's batch is never reprinted by
    * accident) and isPromotion (a promotion is assumed to be a one-week thing) on exactly the given
    * products — the ones actually rendered. soldByWeight/pricePerKg/weightGrams are deliberately left
@@ -230,6 +241,19 @@ export const useProductStore = create<ProductState>((set, get) => {
       set({ products: [...get().products, fresh] })
       persistCurrent()
       return 'created'
+    },
+
+    updateTextFieldsByOrderNumber: (data) => {
+      const existing = get().products.find((p) => normalize(p.orderNumber) === normalize(data.orderNumber))
+      if (!existing) return 'not-found'
+      updateOne(existing.id, (p) => ({
+        ...p,
+        name: data.name?.trim() || p.name,
+        text1: data.text1 ? multiFieldFromImport(data.text1) : p.text1,
+        text2: data.text2 ? multiFieldFromImport(data.text2) : p.text2,
+        updatedAt: new Date().toISOString()
+      }))
+      return 'updated'
     },
 
     resetProcessed: (ids) => {

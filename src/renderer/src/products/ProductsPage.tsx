@@ -93,12 +93,14 @@ function ProductsPage(): React.JSX.Element {
   const addProduct = useProductStore((state) => state.addProduct)
   const updateProduct = useProductStore((state) => state.updateProduct)
   const upsertByOrderNumber = useProductStore((state) => state.upsertByOrderNumber)
+  const updateTextFieldsByOrderNumber = useProductStore((state) => state.updateTextFieldsByOrderNumber)
   const resetAllQuantities = useProductStore((state) => state.resetAllQuantities)
 
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<SortState | null>(null)
   const [editingProductId, setEditingProductId] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
+  const [textOnlyImport, setTextOnlyImport] = useState(false)
   const [importSummary, setImportSummary] = useState<string | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
@@ -173,15 +175,27 @@ function ProductsPage(): React.JSX.Element {
         return
       }
 
-      let created = 0
-      let updated = 0
-      for (const row of rows) {
-        const outcome = upsertByOrderNumber(row)
-        if (outcome === 'created') created++
-        else updated++
+      if (textOnlyImport) {
+        let updated = 0
+        let notFound = 0
+        for (const row of rows) {
+          const outcome = updateTextFieldsByOrderNumber(row)
+          if (outcome === 'updated') updated++
+          else notFound++
+        }
+        const notFoundNote = notFound > 0 ? `, ${notFound} bestelnummer(s) niet gevonden (overgeslagen, niet aangemaakt)` : ''
+        setImportSummary(`${updated} product(en) bijgewerkt (alleen Naam, Top tekst en Tekst onder)${notFoundNote}.`)
+      } else {
+        let created = 0
+        let updated = 0
+        for (const row of rows) {
+          const outcome = upsertByOrderNumber(row)
+          if (outcome === 'created') created++
+          else updated++
+        }
+        const skippedNote = skipped > 0 ? `, ${skipped} rij(en) overgeslagen (geen Bestelnummer)` : ''
+        setImportSummary(`${created} nieuw, ${updated} bijgewerkt (${rows.length} rijen verwerkt${skippedNote}) — allemaal op 1 kaartje gezet.`)
       }
-      const skippedNote = skipped > 0 ? `, ${skipped} rij(en) overgeslagen (geen Bestelnummer)` : ''
-      setImportSummary(`${created} nieuw, ${updated} bijgewerkt (${rows.length} rijen verwerkt${skippedNote}) — allemaal op 1 kaartje gezet.`)
     } catch (error) {
       setImportError(error instanceof Error ? error.message : 'Onbekende fout bij het importeren.')
     } finally {
@@ -203,6 +217,13 @@ function ProductsPage(): React.JSX.Element {
           {importing && <span className="spinner" aria-hidden="true" />}
           {importing ? 'Bezig met importeren…' : 'Excel importeren'}
         </button>
+        <label
+          className="field checkbox-field products-textonly-toggle"
+          title="Werkt alleen bestaande producten bij (matcht op Bestelnummer) en past alleen Naam, Top tekst en Tekst onder aan — Prijs, Actie, Per gewicht, Gewicht, Weegschaalcode en Land van herkomst blijven ongewijzigd. Er worden geen nieuwe producten aangemaakt; een bestelnummer dat nog niet bestaat wordt overgeslagen."
+        >
+          <input type="checkbox" checked={textOnlyImport} onChange={(e) => setTextOnlyImport(e.target.checked)} />
+          <span>Alleen Naam/Top tekst/Tekst onder bijwerken</span>
+        </label>
         <button
           type="button"
           className={exporting ? 'products-import-button importing' : 'products-import-button'}

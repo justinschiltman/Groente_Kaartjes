@@ -753,6 +753,11 @@ button {
   margin-bottom: 1rem;
 }
 
+.products-textonly-toggle {
+  white-space: nowrap;
+  padding-bottom: 0.5rem;
+}
+
 .products-search {
   flex: 1 1 260px;
   font-family: inherit;
