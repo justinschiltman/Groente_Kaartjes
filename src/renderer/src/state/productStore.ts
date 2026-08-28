@@ -122,6 +122,14 @@ interface ProductState {
    * rather than creating a new, mostly-empty product. */
   updateTextFieldsByOrderNumber: (data: { orderNumber: string; name?: string; text1?: string; text2?: string }) => 'updated' | 'not-found'
 
+  /** Wipes the ENTIRE catalog first (every product, including price/actie/per-gewicht/quantity — not
+   * just the ones in the given rows) and rebuilds it from scratch via upsertByOrderNumber, so this is
+   * explicitly a full replace, not an incremental import. Returns the number of products created (a row
+   * whose orderNumber duplicates an earlier row in the same batch updates that one instead of creating
+   * a second product, so this can be fewer than rows.length). The caller is responsible for confirming
+   * with the user before calling this — it's irreversible from here. */
+  replaceAllFromImport: (rows: ProductImportRow[]) => number
+
   /** After a successful "Verwerken": clears quantity (so last week's batch is never reprinted by
    * accident) and isPromotion (a promotion is assumed to be a one-week thing) on exactly the given
    * products — the ones actually rendered. soldByWeight/pricePerKg/weightGrams are deliberately left
@@ -254,6 +262,16 @@ export const useProductStore = create<ProductState>((set, get) => {
         updatedAt: new Date().toISOString()
       }))
       return 'updated'
+    },
+
+    replaceAllFromImport: (rows) => {
+      set({ products: [] })
+      persistCurrent()
+      let created = 0
+      for (const row of rows) {
+        if (get().upsertByOrderNumber(row) === 'created') created++
+      }
+      return created
     },
 
     resetProcessed: (ids) => {

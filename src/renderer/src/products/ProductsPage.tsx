@@ -94,6 +94,7 @@ function ProductsPage(): React.JSX.Element {
   const updateProduct = useProductStore((state) => state.updateProduct)
   const upsertByOrderNumber = useProductStore((state) => state.upsertByOrderNumber)
   const updateTextFieldsByOrderNumber = useProductStore((state) => state.updateTextFieldsByOrderNumber)
+  const replaceAllFromImport = useProductStore((state) => state.replaceAllFromImport)
   const resetAllQuantities = useProductStore((state) => state.resetAllQuantities)
 
   const [search, setSearch] = useState('')
@@ -203,6 +204,39 @@ function ProductsPage(): React.JSX.Element {
     }
   }
 
+  async function handleReplaceAll(): Promise<void> {
+    setImporting(true)
+    setImportSummary(null)
+    setImportError(null)
+    try {
+      const result = await window.api.importProducts()
+      if (result.canceled) return
+      if (result.error) {
+        setImportError(result.error)
+        return
+      }
+      const rows = result.rows ?? []
+      const skipped = result.skippedRowCount ?? 0
+      if (rows.length === 0) {
+        setImportError('Dit Excel-bestand bevat geen productrijen om te importeren.')
+        return
+      }
+      const confirmed = window.confirm(
+        `Dit verwijdert ALLE ${products.length} huidige product(en) — inclusief prijzen, Actie- en Per-gewicht-instellingen — en vervangt ze volledig door de ${rows.length} product(en) uit dit bestand. Dit kan niet ongedaan worden gemaakt. Doorgaan?`
+      )
+      if (!confirmed) return
+      const created = replaceAllFromImport(rows)
+      const skippedNote = skipped > 0 ? `, ${skipped} rij(en) overgeslagen (geen Bestelnummer)` : ''
+      setImportSummary(
+        `Catalogus volledig vervangen: ${created} product(en) (${rows.length} rijen verwerkt${skippedNote}) — allemaal op 1 kaartje gezet, zonder prijs en zonder Actie (die vul je zelf weer aan).`
+      )
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : 'Onbekende fout bij het vervangen.')
+    } finally {
+      setImporting(false)
+    }
+  }
+
   return (
     <div className="products-page">
       <div className="products-toolbar">
@@ -224,6 +258,15 @@ function ProductsPage(): React.JSX.Element {
           <input type="checkbox" checked={textOnlyImport} onChange={(e) => setTextOnlyImport(e.target.checked)} />
           <span>Alleen Naam/Top tekst/Tekst onder bijwerken</span>
         </label>
+        <button
+          type="button"
+          className="danger"
+          onClick={handleReplaceAll}
+          disabled={importing}
+          title="Verwijdert de hele huidige productenlijst en bouwt hem helemaal opnieuw op uit een Excel-bestand. Onomkeerbaar — vraagt om bevestiging met het aantal producten voordat er iets wordt gewist."
+        >
+          Catalogus wissen en vervangen
+        </button>
         <button
           type="button"
           className={exporting ? 'products-import-button importing' : 'products-import-button'}
