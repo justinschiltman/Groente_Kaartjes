@@ -29,6 +29,13 @@ export interface TextElement extends BaseElement {
   /** Extra space between letters, in thousandths of the font size (Fabric's charSpacing unit —
    * the same "tracking" convention used by Illustrator/Photoshop). 0 = normal, negative = tighter. */
   letterSpacing?: number
+  /** When true, `height` becomes a real vertical target instead of the otherwise-vestigial
+   * initial-placement value (a Textbox's height is normally fully content-derived — see
+   * fabricSync.ts's readGeometryPatch): exactly 1 rendered line is centered within [y, y+height] at
+   * the configured font size (still shrunk by width as normal); 2+ rendered lines (typically from a
+   * manual line break typed into the bound value) are tight-spaced and grown/shrunk together so
+   * their combined block height fills [y, y+height], also centered. See fitText in fabricSync.ts. */
+  verticalFit?: boolean
 }
 
 export interface ImageElement extends BaseElement {

@@ -13,7 +13,7 @@ import {
   applyPatchToFabricObject,
   buildFabricObject,
   findObjectByElementId,
-  fitTextToWidth,
+  fitText,
   readGeometryPatch,
   readTextPatch,
   type TaggedFabricObject
@@ -70,7 +70,7 @@ export function useFabricCanvas(): UseFabricCanvasResult {
       if (element?.type === 'text') {
         const resolved = resolveBoundText(element, row)
         obj.set('text', resolved !== null ? resolved : element.text)
-        if (obj instanceof Textbox) fitTextToWidth(obj, element, editorUnits, cardHeightMm)
+        if (obj instanceof Textbox) fitText(obj, element, editorUnits, cardHeightMm)
       }
     })
     canvas.requestRenderAll()
@@ -384,7 +384,7 @@ export function useFabricCanvas(): UseFabricCanvasResult {
       if (Object.keys(patch).length > 0) useProjectStore.getState().updateElement(obj.elementId, patch)
       const element = getActiveTemplate().elements.find((el) => el.id === obj.elementId)
       if (element?.type === 'text' && obj instanceof Textbox) {
-        fitTextToWidth(obj, element, editorUnits, useProjectStore.getState().cardHeightMm)
+        fitText(obj, element, editorUnits, useProjectStore.getState().cardHeightMm)
       }
     })
 

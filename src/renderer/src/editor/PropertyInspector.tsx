@@ -270,6 +270,18 @@ function TextFields({
         </p>
       )}
 
+      <label className="field checkbox-field">
+        <input
+          type="checkbox"
+          checked={element.verticalFit ?? false}
+          onChange={(e) => onUpdate({ verticalFit: e.target.checked })}
+        />
+        <span>Verticaal passend maken (1 regel = midden van het vak, 2 regels = vult het vak)</span>
+      </label>
+      {element.verticalFit && (
+        <NumberField label="Hoogte van het vak (mm)" value={element.height} onCommit={(height) => onUpdate({ height })} />
+      )}
+
       <FontFamilyField value={element.fontFamily} onCommit={(fontFamily) => onUpdate({ fontFamily })} />
 
       <div className="field-row">

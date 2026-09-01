@@ -23,6 +23,16 @@ export function findObjectByElementId(objects: FabricObject[], id: string): Tagg
  * still legible on a printed card. */
 const MIN_TEXT_FONT_SIZE_PT = 6
 
+/** Fabric's own Textbox default (see fabric's Text class) — set explicitly rather than left implicit
+ * so a reused live object (rebinding, live preview, inline edits) always returns to it when
+ * verticalFit is off, not just at construction time. */
+const DEFAULT_LINE_HEIGHT = 1.16
+
+/** Tighter stacking used only for a verticalFit element's 2+-line block, so two manually-broken
+ * lines read as one compact unit instead of leaving Fabric's normal single-line-oriented spacing
+ * between them. */
+const TIGHT_LINE_HEIGHT = 0.95
+
 /** Auto-fit only applies to the free-text fields whose length genuinely varies unpredictably per
  * product (a name or a marketing blurb) — not computed/short fields like Prijs per kilo or Actie, and
  * not static (unbound) text, which the designer places and can see and adjust directly. Includes the
@@ -45,6 +55,13 @@ function fitsWidth(textbox: Textbox, boxWidthPx: number): boolean {
   return true
 }
 
+/** Repositions a textbox so its rendered content is centered within a box of `boxHeightPx` starting
+ * at `topPx` — used only by the verticalFit fill pass below, never by the plain top-anchored path. */
+function centerInBox(textbox: Textbox, topPx: number, boxHeightPx: number): void {
+  const renderedHeightPx = textbox.height * (textbox.scaleY ?? 1)
+  textbox.set({ top: topPx + Math.max(0, (boxHeightPx - renderedHeightPx) / 2) })
+}
+
 /**
  * Shrinks a Textbox's rendered font size — never below MIN_TEXT_FONT_SIZE_PT, never above the
  * element's own configured fontSize — just enough to satisfy two independent constraints:
@@ -65,42 +82,94 @@ function fitsWidth(textbox: Textbox, boxWidthPx: number): boolean {
  *    past the card edge — that's not content being lost, and a large display price is routinely
  *    positioned exactly that way on purpose.
  *
- * A no-op (full configured size, one fit check) for the common case where the current text already
- * satisfies both. Purely a rendering-time adjustment on the live fabric object — never reads or writes
- * the store, so the configured fontSize the property inspector shows is never affected. Always resets
- * to the full configured size before checking, so repeated calls on the same object (e.g. cycling
- * preview products, or rebinding an element away from an auto-fit-eligible field after it was shrunk)
- * never compound a shrink from an already-shrunk state.
+ * Then, only when the element has verticalFit on (see TextElement.verticalFit), repositions/resizes
+ * once more: exactly 1 line is centered within [y, y+height] at whatever size the two constraints
+ * above already settled on; 2+ lines (typically from a manually-typed line break) switch to
+ * TIGHT_LINE_HEIGHT and are grown or shrunk TOGETHER — never past the box's own width, never
+ * rewrapping onto more lines than it already has, and never past the card's own bottom edge — so
+ * their combined block fills [y, y+height] as closely as possible, then centered the same way. A
+ * plain (non-verticalFit) element is never repositioned — top stays exactly `y`, matching every
+ * element's behavior before verticalFit existed.
+ *
+ * A no-op (full configured size, one fit check, top-anchored) for the common case where the current
+ * text already satisfies all of this. Purely a rendering-time adjustment on the live fabric object —
+ * never reads or writes the store, so the configured fontSize/height the property inspector shows are
+ * never affected. Always resets to the full configured size and top before checking, so repeated calls
+ * on the same object (e.g. cycling preview products, or rebinding an element away from an
+ * auto-fit-eligible field after it was shrunk) never compound a shrink from an already-shrunk state.
  */
-export function fitTextToWidth(textbox: Textbox, element: TextElement, units: UnitConverters, cardHeightMm: number): void {
+export function fitText(textbox: Textbox, element: TextElement, units: UnitConverters, cardHeightMm: number): void {
   const maxFontSizePx = units.ptToPx(element.fontSize)
   const minFontSizePx = units.ptToPx(MIN_TEXT_FONT_SIZE_PT)
   const autoFitWidth = Boolean(element.bindingKey && AUTO_FIT_BINDING_KEYS.has(element.bindingKey))
   const boxWidthPx = units.mmToPx(element.width)
-  const maxHeightPx = units.mmToPx(cardHeightMm) - units.mmToPx(element.y)
+  const topPx = units.mmToPx(element.y)
+  const maxHeightPx = units.mmToPx(cardHeightMm) - topPx
 
-  function fits(): boolean {
-    if (autoFitWidth && !fitsWidth(textbox, boxWidthPx)) return false
+  function fitsCardEdge(): boolean {
     if (textbox.textLines.length <= 1) return true
     const renderedHeightPx = textbox.height * (textbox.scaleY ?? 1)
     return renderedHeightPx <= maxHeightPx
   }
+  function fits(): boolean {
+    if (autoFitWidth && !fitsWidth(textbox, boxWidthPx)) return false
+    return fitsCardEdge()
+  }
+
+  textbox.set({ top: topPx, lineHeight: element.verticalFit ? TIGHT_LINE_HEIGHT : DEFAULT_LINE_HEIGHT })
 
   textbox.set({ fontSize: maxFontSizePx })
-  if (fits()) return
-
-  textbox.set({ fontSize: minFontSizePx })
-  if (!fits()) return // doesn't fit even at the floor — best effort, leave it there
-
-  let lo = minFontSizePx
-  let hi = maxFontSizePx
-  for (let i = 0; i < 15; i++) {
-    const mid = (lo + hi) / 2
-    textbox.set({ fontSize: mid })
-    if (fits()) lo = mid
-    else hi = mid
+  if (!fits()) {
+    textbox.set({ fontSize: minFontSizePx })
+    if (fits()) {
+      let lo = minFontSizePx
+      let hi = maxFontSizePx
+      for (let i = 0; i < 15; i++) {
+        const mid = (lo + hi) / 2
+        textbox.set({ fontSize: mid })
+        if (fits()) lo = mid
+        else hi = mid
+      }
+      textbox.set({ fontSize: lo })
+    }
+    // else: doesn't fit even at the floor — best effort, leave it there.
   }
-  textbox.set({ fontSize: lo })
+
+  if (!element.verticalFit) return
+
+  const boxHeightPx = units.mmToPx(element.height)
+  const lineCount = textbox.textLines.length
+
+  if (lineCount <= 1) {
+    centerInBox(textbox, topPx, boxHeightPx)
+    return
+  }
+
+  // 2+ lines: grow or shrink together (one fontSize for the whole block, same as the width-fit
+  // above) so the tight-spaced block fills the box height — but never past this element's own width,
+  // never rewrapping onto more lines than it already has, and never past the card's bottom edge.
+  const idealFontSizePx = Math.max(minFontSizePx, boxHeightPx / (lineCount * TIGHT_LINE_HEIGHT))
+  function fitsFill(): boolean {
+    return fitsWidth(textbox, boxWidthPx) && textbox.textLines.length <= lineCount && fitsCardEdge()
+  }
+
+  textbox.set({ fontSize: idealFontSizePx })
+  if (!fitsFill()) {
+    textbox.set({ fontSize: minFontSizePx })
+    if (fitsFill()) {
+      let lo = minFontSizePx
+      let hi = idealFontSizePx
+      for (let i = 0; i < 15; i++) {
+        const mid = (lo + hi) / 2
+        textbox.set({ fontSize: mid })
+        if (fitsFill()) lo = mid
+        else hi = mid
+      }
+      textbox.set({ fontSize: lo })
+    }
+    // else: doesn't fit even at the floor — best effort, leave it there.
+  }
+  centerInBox(textbox, topPx, boxHeightPx)
 }
 
 /** `units` defaults to the fixed on-screen editor scale; the export renderer passes its own
@@ -139,7 +208,7 @@ export function buildFabricObject(
       // readGeometryPatch below for why this is never baked into height like Rect/Ellipse are).
       scaleY: element.verticalScale ?? 1
     })
-    fitTextToWidth(textbox, element, units, cardHeightMm)
+    fitText(textbox, element, units, cardHeightMm)
     obj = textbox
   } else if (element.type === 'shape' && element.shape === 'rect') {
     const radiusPx = element.cornerRadius ? mmToPx(element.cornerRadius) : 0

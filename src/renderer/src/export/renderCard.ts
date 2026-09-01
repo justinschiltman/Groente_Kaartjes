@@ -2,7 +2,7 @@ import { StaticCanvas, Textbox } from 'fabric'
 import { resolveBoundText } from '@shared/dataBinding'
 import type { DataRow } from '@shared/types/data'
 import type { Template } from '@shared/types/template'
-import { buildFabricObject, fitTextToWidth } from '../editor/fabricSync'
+import { buildFabricObject, fitText } from '../editor/fabricSync'
 import { createUnitConverters } from '../editor/units'
 
 export interface CardRenderer {
@@ -32,7 +32,7 @@ export function createCardRenderer(dpi: number): CardRenderer {
         if (resolved !== null) obj.set('text', resolved)
         // Re-fit after swapping in this row's actual value — the box was already fit once for the
         // template's static/placeholder text, which is generally a different length.
-        if (obj instanceof Textbox) fitTextToWidth(obj, element, units, heightMm)
+        if (obj instanceof Textbox) fitText(obj, element, units, heightMm)
       }
       canvas.add(obj)
     }

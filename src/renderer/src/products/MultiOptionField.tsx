@@ -31,7 +31,7 @@ function MultiOptionField({ label, field, onAddOption, onSetFavorite, onRemoveOp
             <li key={option} className={option === field.favorite ? 'multi-option active' : 'multi-option'}>
               <button type="button" className="multi-option-select" onClick={() => onSetFavorite(option)} title="Als favoriet instellen">
                 <span className="multi-option-star">{option === field.favorite ? '★' : '☆'}</span>
-                <span>{option}</span>
+                <span className="multi-option-text">{option}</span>
               </button>
               <button type="button" className="multi-option-remove" onClick={() => onRemoveOption(option)} title="Verwijderen">
                 ✕
@@ -42,13 +42,15 @@ function MultiOptionField({ label, field, onAddOption, onSetFavorite, onRemoveOp
       )}
 
       <div className="multi-option-add">
-        <input
-          type="text"
+        <textarea
           value={newValue}
-          placeholder={`Nieuwe waarde…`}
+          rows={1}
+          placeholder="Nieuwe waarde… (Enter voor een regeleinde)"
           onChange={(e) => setNewValue(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') {
+            // Plain Enter inserts a line break (e.g. a "Tekst onder" bound to a box that vult het vak
+            // over 2 regels) — Ctrl/Cmd+Enter is a shortcut for the "+ Toevoegen" button below.
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
               e.preventDefault()
               commitAdd()
             }
