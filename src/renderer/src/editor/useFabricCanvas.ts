@@ -31,6 +31,8 @@ export interface UseFabricCanvasResult {
   addImage: (asset: ImageAsset) => void
   deleteElement: (id: string) => void
   duplicateElement: (id: string) => void
+  copySelected: () => void
+  pasteElement: () => void
   updateSelectedProperties: (patch: ElementPatch) => void
   setElementBinding: (templateId: string, elementId: string, bindingKey: string | undefined) => void
   reorderElement: (id: string, direction: 'up' | 'down' | 'front' | 'back') => void
@@ -191,6 +193,39 @@ export function useFabricCanvas(): UseFabricCanvasResult {
     }
     useEditorUiStore.getState().select(newId)
   }, [])
+
+  // Copies the selected element's full data (not just its id) into editorUiStore's clipboard, so
+  // pasteElement below can add it to a DIFFERENT template than the one it was copied from — switching
+  // templates doesn't touch that store.
+  const copySelected = useCallback(() => {
+    const id = useEditorUiStore.getState().selectedElementId
+    if (!id) return
+    const element = getActiveTemplate().elements.find((el) => el.id === id)
+    if (element) useEditorUiStore.getState().copyToClipboard(element)
+  }, [])
+
+  const pasteElement = useCallback(
+    () => {
+      const clipboardElement = useEditorUiStore.getState().clipboardElement
+      if (!clipboardElement) return
+      const newId = useProjectStore.getState().pasteElement(clipboardElement)
+      if (!newId) return
+      const newElement = getActiveTemplate().elements.find((el) => el.id === newId)
+      const canvas = fabricCanvasRef.current
+      if (canvas && newElement) {
+        const obj = buildFabricObject(newElement)
+        canvas.add(obj)
+        canvas.setActiveObject(obj)
+        canvas.requestRenderAll()
+      }
+      useEditorUiStore.getState().select(newId)
+      // A pasted text element always lands unbound (see projectStore's pasteElement) — this also
+      // covers the rarer case of a pasted lineCountVariant-tagged element, whose visibility now
+      // depends on its own static text rather than a binding.
+      applyPreviewData()
+    },
+    [applyPreviewData]
+  )
 
   const updateSelectedProperties = useCallback(
     (patch: ElementPatch) => {
@@ -406,6 +441,12 @@ export function useFabricCanvas(): UseFabricCanvasResult {
       } else if (ctrlOrCmd && event.key.toLowerCase() === 'd' && activeObject) {
         event.preventDefault()
         duplicateElement(activeObject.elementId)
+      } else if (ctrlOrCmd && event.key.toLowerCase() === 'c' && activeObject) {
+        event.preventDefault()
+        copySelected()
+      } else if (ctrlOrCmd && event.key.toLowerCase() === 'v') {
+        event.preventDefault()
+        pasteElement()
       } else if (ctrlOrCmd && event.shiftKey && event.key.toLowerCase() === 'z') {
         event.preventDefault()
         redo()
@@ -429,7 +470,7 @@ export function useFabricCanvas(): UseFabricCanvasResult {
     // Every dependency below is referentially stable for the component's lifetime (the callbacks read
     // fresh state via getState() rather than closing over props; initial size comes from a ref, not
     // canvasSizePx, specifically so later resizes don't recreate the canvas) — this runs once on mount.
-  }, [rehydrate, deleteElement, duplicateElement, undo, redo])
+  }, [rehydrate, deleteElement, duplicateElement, copySelected, pasteElement, undo, redo])
 
   // Reacts to preview-product changes and to edits on the product catalog itself (e.g. changing the
   // previewed product's Naam updates the live canvas immediately) — without needing store reads
@@ -466,6 +507,8 @@ export function useFabricCanvas(): UseFabricCanvasResult {
     addImage,
     deleteElement,
     duplicateElement,
+    copySelected,
+    pasteElement,
     updateSelectedProperties,
     setElementBinding,
     reorderElement,

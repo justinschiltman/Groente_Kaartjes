@@ -111,6 +111,14 @@ interface ProjectState {
   updateElementInTemplate: (templateId: string, elementId: string, patch: ElementPatch) => void
   removeElement: (id: string) => void
   duplicateElement: (id: string) => string | undefined
+  /** Adds a copy of `source` (typically from useEditorUiStore's clipboard, possibly copied from a
+   * DIFFERENT template than the one currently active) to the active template — a fresh id and top
+   * zIndex like duplicateElement, but at the source's own x/y (no offset — the point of pasting into
+   * another design is usually to land in the same spot) and, for a text element, with bindingKey
+   * always cleared: a field binding made sense in whatever design it was copied from, but pasting it
+   * elsewhere silently re-creates exactly the kind of duplicate-bound-element bug a designer copying
+   * a badge/logo across templates would not expect (and does not want re-explained every time). */
+  pasteElement: (source: CardElement) => string | undefined
   reorderElement: (id: string, direction: 'up' | 'down' | 'front' | 'back') => void
   setCardSize: (widthMm: number, heightMm: number) => void
 
@@ -199,6 +207,17 @@ export const useProjectStore = create<ProjectState>((set, get) => {
       const newId = crypto.randomUUID()
       const maxZ = current.elements.reduce((max, el) => Math.max(max, el.zIndex), 0)
       const clone: CardElement = { ...source, id: newId, x: source.x + 4, y: source.y + 4, zIndex: maxZ + 1 }
+      commit((elements) => [...elements, clone])
+      return newId
+    },
+
+    pasteElement: (source) => {
+      const current = activeTemplate()
+      if (!current) return undefined
+      const newId = crypto.randomUUID()
+      const maxZ = current.elements.reduce((max, el) => Math.max(max, el.zIndex), 0)
+      const clone: CardElement = { ...source, id: newId, zIndex: maxZ + 1 }
+      if (clone.type === 'text') clone.bindingKey = undefined
       commit((elements) => [...elements, clone])
       return newId
     },
