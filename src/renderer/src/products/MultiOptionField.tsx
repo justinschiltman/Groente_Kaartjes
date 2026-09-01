@@ -7,9 +7,19 @@ interface MultiOptionFieldProps {
   onAddOption: (value: string) => void
   onSetFavorite: (value: string) => void
   onRemoveOption: (value: string) => void
+  /** Only "Tekst onder" needs this (see its verticalFit card option) — every other multi-option
+   * field (Top tekst, Land van herkomst) keeps the plain single-line input, Enter-to-add. */
+  allowLineBreaks?: boolean
 }
 
-function MultiOptionField({ label, field, onAddOption, onSetFavorite, onRemoveOption }: MultiOptionFieldProps): React.JSX.Element {
+function MultiOptionField({
+  label,
+  field,
+  onAddOption,
+  onSetFavorite,
+  onRemoveOption,
+  allowLineBreaks
+}: MultiOptionFieldProps): React.JSX.Element {
   const [newValue, setNewValue] = useState('')
 
   function commitAdd(): void {
@@ -42,20 +52,35 @@ function MultiOptionField({ label, field, onAddOption, onSetFavorite, onRemoveOp
       )}
 
       <div className="multi-option-add">
-        <textarea
-          value={newValue}
-          rows={1}
-          placeholder="Nieuwe waarde… (Enter voor een regeleinde)"
-          onChange={(e) => setNewValue(e.target.value)}
-          onKeyDown={(e) => {
-            // Plain Enter inserts a line break (e.g. a "Tekst onder" bound to a box that vult het vak
-            // over 2 regels) — Ctrl/Cmd+Enter is a shortcut for the "+ Toevoegen" button below.
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-              e.preventDefault()
-              commitAdd()
-            }
-          }}
-        />
+        {allowLineBreaks ? (
+          <textarea
+            value={newValue}
+            rows={1}
+            placeholder="Nieuwe waarde… (Enter voor een regeleinde)"
+            onChange={(e) => setNewValue(e.target.value)}
+            onKeyDown={(e) => {
+              // Plain Enter inserts a line break (e.g. a box that "vult het vak" over 2 regels) —
+              // Ctrl/Cmd+Enter is a shortcut for the "+ Toevoegen" button below.
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault()
+                commitAdd()
+              }
+            }}
+          />
+        ) : (
+          <input
+            type="text"
+            value={newValue}
+            placeholder="Nieuwe waarde…"
+            onChange={(e) => setNewValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                commitAdd()
+              }
+            }}
+          />
+        )}
         <button type="button" onClick={commitAdd}>
           + Toevoegen
         </button>

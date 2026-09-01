@@ -12,9 +12,9 @@ interface ProductEditModalProps {
 
 // "Verkocht per" used to be here too, as a manually-typed MultiOptionField — it's now derived
 // automatically from Per gewicht/Gewicht (see deriveSoldPer) and shown as a read-only line instead.
-const MULTI_FIELD_CONFIG: { key: MultiValueFieldKey; label: string }[] = [
+const MULTI_FIELD_CONFIG: { key: MultiValueFieldKey; label: string; allowLineBreaks?: boolean }[] = [
   { key: 'text1', label: 'Top tekst' },
-  { key: 'text2', label: 'Tekst onder' },
+  { key: 'text2', label: 'Tekst onder', allowLineBreaks: true },
   { key: 'countryOfOrigin', label: 'Land van herkomst' }
 ]
 
@@ -217,11 +217,12 @@ function ProductEditModal({ productId, onClose }: ProductEditModalProps): React.
 
           <p className="empty-hint">Verkocht per: {deriveSoldPer(product) ?? '— (vul eerst Gewicht in)'}</p>
 
-          {MULTI_FIELD_CONFIG.map(({ key, label }) => (
+          {MULTI_FIELD_CONFIG.map(({ key, label, allowLineBreaks }) => (
             <MultiOptionField
               key={key}
               label={label}
               field={product[key]}
+              allowLineBreaks={allowLineBreaks}
               onAddOption={(value) => addOption(productId, key, value)}
               onSetFavorite={(value) => setFavorite(productId, key, value)}
               onRemoveOption={(value) => removeOption(productId, key, value)}

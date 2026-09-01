@@ -1126,6 +1126,7 @@ button {
   gap: 0.4rem;
 }
 
+.multi-option-add input,
 .multi-option-add textarea {
   flex: 1 1 auto;
   font-family: inherit;
@@ -1133,6 +1134,9 @@ button {
   padding: 0.35rem 0.5rem;
   border: 1px solid #c9d3c9;
   border-radius: 4px;
+}
+
+.multi-option-add textarea {
   resize: vertical;
   min-height: 2rem;
 }
