@@ -59,8 +59,12 @@ function fitsWidth(textbox: Textbox, boxWidthPx: number): boolean {
  * element's own configured fontSize — just enough to satisfy two independent constraints:
  *
  * 1. For the three free-text fields in AUTO_FIT_BINDING_KEYS, every wrapped line must fit within the
- *    element's own width. Fixes e.g. a long single-word product name ("Sperziebonen") that has no
- *    space to wrap on and would otherwise just overflow past its box.
+ *    element's own width, AND the number of rendered lines must never exceed what the text's own
+ *    manual "\n" breaks call for (1 line when there are none). Fixes e.g. a long single-word product
+ *    name ("Sperziebonen") that has no space to wrap on and would otherwise just overflow past its
+ *    box — and just as much, stops Fabric from trading a slightly bigger font for an extra wrapped
+ *    line on ordinary multi-word text, which would silently turn a "1 regel" box into two lines. Only
+ *    shrinking (down to MIN_TEXT_FONT_SIZE_PT) is ever used to make text fit — never an extra line.
  * 2. For EVERY text element regardless of binding, IF it has actually wrapped onto 2+ lines, their
  *    total rendered height below the element's own Y position must never exceed the card's own bottom
  *    edge. A field outside AUTO_FIT_BINDING_KEYS (e.g. "Verkocht per") still wraps normally by width
@@ -96,9 +100,21 @@ export function fitText(textbox: Textbox, element: TextElement, units: UnitConve
   const boxWidthPx = units.mmToPx(element.width)
   const topPx = units.mmToPx(element.y)
   const maxHeightPx = units.mmToPx(cardHeightMm) - topPx
+  // The line count the text itself calls for — its manual "\n" breaks, or just 1 when there are none
+  // — never how many lines happen to fit at the current font size. Fixed once, from the raw string,
+  // before any fontSize change.
+  const intendedLineCount = textbox.text.split('\n').length
 
   function fits(): boolean {
-    if (autoFitWidth && !fitsWidth(textbox, boxWidthPx)) return false
+    if (autoFitWidth) {
+      // For the three free-text fields, wrapping onto MORE lines than the text's own manual breaks
+      // call for is never an acceptable way to satisfy the width — e.g. a "1 regel" box's content
+      // must never silently become 2 lines just because that lets the font stay bigger; only shrinking
+      // is allowed to make it fit. Fabric would otherwise happily trade a slightly bigger font for an
+      // extra wrapped line, which is exactly backwards for a box a designer sized/positioned for one
+      // specific line count.
+      if (!fitsWidth(textbox, boxWidthPx) || textbox.textLines.length > intendedLineCount) return false
+    }
     if (textbox.textLines.length <= 1) return true
     const renderedHeightPx = textbox.height * (textbox.scaleY ?? 1)
     return renderedHeightPx <= maxHeightPx
