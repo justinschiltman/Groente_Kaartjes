@@ -60,21 +60,24 @@ export function useFabricCanvas(): UseFabricCanvasResult {
   // formatAs) instead of its static text — falls back to the static text when unbound or no preview
   // product is available. Also toggles visibility for a lineCountVariant-tagged element (see
   // dataBinding.ts's matchesLineCountVariant): only the variant matching this row's actual line count
-  // stays visible/selectable on canvas, so a designer's two independent alternates for "the same" box
-  // never both show at once — the hidden one is still edited via the layers panel. Deliberately a
-  // lightweight in-place update (not a rehydrate) so switching the preview product doesn't disturb the
-  // current selection.
+  // stays visible on canvas, so a designer's two independent alternates for "the same" box never both
+  // show at once. The currently SELECTED element is always shown regardless of that match, though —
+  // otherwise selecting the non-matching variant to reposition/restyle it would leave it invisible on
+  // canvas the whole time you're editing it, with nothing to see or drag. Deliberately a lightweight
+  // in-place update (not a rehydrate) so switching the preview product doesn't disturb the current
+  // selection.
   const applyPreviewData = useCallback(() => {
     const canvas = fabricCanvasRef.current
     if (!canvas) return
     const template = getActiveTemplate()
     const row = getPreviewRow()
     const { cardHeightMm } = useProjectStore.getState()
+    const selectedId = useEditorUiStore.getState().selectedElementId
     canvas.getObjects().forEach((obj) => {
       const tagged = obj as TaggedFabricObject
       const element = template.elements.find((el) => el.id === tagged.elementId)
       if (element?.type === 'text') {
-        obj.set('visible', matchesLineCountVariant(element, row))
+        obj.set('visible', tagged.elementId === selectedId || matchesLineCountVariant(element, row))
         const resolved = resolveBoundText(element, row)
         obj.set('text', resolved !== null ? resolved : element.text)
         if (obj instanceof Textbox) fitText(obj, element, editorUnits, cardHeightMm)
@@ -155,19 +158,26 @@ export function useFabricCanvas(): UseFabricCanvasResult {
     useEditorUiStore.getState().select(element.id)
   }, [])
 
-  const selectElement = useCallback((id: string | null) => {
-    const canvas = fabricCanvasRef.current
-    if (canvas) {
-      if (id) {
-        const obj = findObjectByElementId(canvas.getObjects(), id)
-        if (obj) canvas.setActiveObject(obj)
-      } else {
-        canvas.discardActiveObject()
+  const selectElement = useCallback(
+    (id: string | null) => {
+      const canvas = fabricCanvasRef.current
+      if (canvas) {
+        if (id) {
+          // Works even while the target is still invisible (a non-matching lineCountVariant, about to
+          // be shown by applyPreviewData below) — setActiveObject is a direct call, not a click, so
+          // Fabric's own visible-object hit-testing doesn't get in the way here.
+          const obj = findObjectByElementId(canvas.getObjects(), id)
+          if (obj) canvas.setActiveObject(obj)
+        } else {
+          canvas.discardActiveObject()
+        }
+        canvas.requestRenderAll()
       }
-      canvas.requestRenderAll()
-    }
-    useEditorUiStore.getState().select(id)
-  }, [])
+      useEditorUiStore.getState().select(id)
+      applyPreviewData()
+    },
+    [applyPreviewData]
+  )
 
   const deleteElement = useCallback((id: string) => {
     const canvas = fabricCanvasRef.current
@@ -338,13 +348,16 @@ export function useFabricCanvas(): UseFabricCanvasResult {
     canvas.on('selection:created', (e) => {
       const obj = e.selected[0] as TaggedFabricObject | undefined
       useEditorUiStore.getState().select(obj?.elementId ?? null)
+      applyPreviewData()
     })
     canvas.on('selection:updated', (e) => {
       const obj = e.selected[0] as TaggedFabricObject | undefined
       useEditorUiStore.getState().select(obj?.elementId ?? null)
+      applyPreviewData()
     })
     canvas.on('selection:cleared', () => {
       useEditorUiStore.getState().select(null)
+      applyPreviewData()
     })
 
     canvas.on('object:modified', (e) => {
@@ -470,7 +483,7 @@ export function useFabricCanvas(): UseFabricCanvasResult {
     // Every dependency below is referentially stable for the component's lifetime (the callbacks read
     // fresh state via getState() rather than closing over props; initial size comes from a ref, not
     // canvasSizePx, specifically so later resizes don't recreate the canvas) — this runs once on mount.
-  }, [rehydrate, deleteElement, duplicateElement, copySelected, pasteElement, undo, redo])
+  }, [rehydrate, deleteElement, duplicateElement, copySelected, pasteElement, undo, redo, applyPreviewData])
 
   // Reacts to preview-product changes and to edits on the product catalog itself (e.g. changing the
   // previewed product's Naam updates the live canvas immediately) — without needing store reads
