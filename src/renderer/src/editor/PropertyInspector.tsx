@@ -270,16 +270,22 @@ function TextFields({
         </p>
       )}
 
-      <label className="field checkbox-field">
-        <input
-          type="checkbox"
-          checked={element.verticalFit ?? false}
-          onChange={(e) => onUpdate({ verticalFit: e.target.checked })}
-        />
-        <span>Verticaal passend maken (1 regel = midden van het vak, 2 regels = vult het vak)</span>
+      <label className="field">
+        <span>Tonen bij</span>
+        <select
+          value={element.lineCountVariant ?? ''}
+          onChange={(e) => onUpdate({ lineCountVariant: (e.target.value || undefined) as TextElement['lineCountVariant'] })}
+        >
+          <option value="">Altijd (ongeacht aantal regels)</option>
+          <option value="single">Alleen bij 1 regel</option>
+          <option value="multi">Alleen bij 2+ regels (na een handmatige regeleinde)</option>
+        </select>
       </label>
-      {element.verticalFit && (
-        <NumberField label="Hoogte van het vak (mm)" value={element.height} onCommit={(height) => onUpdate({ height })} />
+      {element.lineCountVariant && (
+        <p className="binding-preview">
+          Los vakje: zet positie, formaat en lettergrootte hier helemaal onafhankelijk van de andere
+          variant. Voeg voor de andere regel-situatie een tweede tekstvak toe met dezelfde koppeling.
+        </p>
       )}
 
       <FontFamilyField value={element.fontFamily} onCommit={(fontFamily) => onUpdate({ fontFamily })} />

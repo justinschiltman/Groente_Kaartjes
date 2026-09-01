@@ -7,7 +7,8 @@ interface MultiOptionFieldProps {
   onAddOption: (value: string) => void
   onSetFavorite: (value: string) => void
   onRemoveOption: (value: string) => void
-  /** Only "Tekst onder" needs this (see its verticalFit card option) — every other multi-option
+  /** Only "Tekst onder" needs this (typing a manual line break lets a designer's lineCountVariant
+   * elements pick which one to show — see TextElement.lineCountVariant) — every other multi-option
    * field (Top tekst, Land van herkomst) keeps the plain single-line input, Enter-to-add. */
   allowLineBreaks?: boolean
 }

@@ -9,7 +9,12 @@ interface LayersPanelProps {
 }
 
 function layerLabel(element: CardElement): string {
-  if (element.type === 'text') return element.text.trim() || 'Tekst'
+  if (element.type === 'text') {
+    const base = element.text.trim() || 'Tekst'
+    if (element.lineCountVariant === 'single') return `${base} (1 regel)`
+    if (element.lineCountVariant === 'multi') return `${base} (2+ regels)`
+    return base
+  }
   if (element.type === 'shape') return element.shape === 'rect' ? 'Rechthoek' : 'Ellips'
   return 'Afbeelding'
 }

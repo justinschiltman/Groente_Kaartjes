@@ -6,7 +6,7 @@ import { useAssetStore } from '@renderer/state/assetStore'
 import { useEditorUiStore } from '@renderer/state/editorUiStore'
 import { getPreviewRow } from '@renderer/state/mergedData'
 import { useProductStore } from '@renderer/state/productStore'
-import { resolveBoundText } from '@shared/dataBinding'
+import { matchesLineCountVariant, resolveBoundText } from '@shared/dataBinding'
 import type { ElementPatch, ShapeKind } from '@shared/types/template'
 import { createImageElement, createShapeElement, createTextElement } from './elementFactory'
 import {
@@ -56,8 +56,12 @@ export function useFabricCanvas(): UseFabricCanvasResult {
 
   // For every bound text element on canvas, shows the current preview row's value (formatted per
   // formatAs) instead of its static text — falls back to the static text when unbound or no preview
-  // product is available. Deliberately a lightweight in-place update (not a rehydrate) so switching
-  // the preview product doesn't disturb the current selection.
+  // product is available. Also toggles visibility for a lineCountVariant-tagged element (see
+  // dataBinding.ts's matchesLineCountVariant): only the variant matching this row's actual line count
+  // stays visible/selectable on canvas, so a designer's two independent alternates for "the same" box
+  // never both show at once — the hidden one is still edited via the layers panel. Deliberately a
+  // lightweight in-place update (not a rehydrate) so switching the preview product doesn't disturb the
+  // current selection.
   const applyPreviewData = useCallback(() => {
     const canvas = fabricCanvasRef.current
     if (!canvas) return
@@ -68,6 +72,7 @@ export function useFabricCanvas(): UseFabricCanvasResult {
       const tagged = obj as TaggedFabricObject
       const element = template.elements.find((el) => el.id === tagged.elementId)
       if (element?.type === 'text') {
+        obj.set('visible', matchesLineCountVariant(element, row))
         const resolved = resolveBoundText(element, row)
         obj.set('text', resolved !== null ? resolved : element.text)
         if (obj instanceof Textbox) fitText(obj, element, editorUnits, cardHeightMm)

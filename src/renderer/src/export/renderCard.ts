@@ -1,5 +1,5 @@
 import { StaticCanvas, Textbox } from 'fabric'
-import { resolveBoundText } from '@shared/dataBinding'
+import { matchesLineCountVariant, resolveBoundText } from '@shared/dataBinding'
 import type { DataRow } from '@shared/types/data'
 import type { Template } from '@shared/types/template'
 import { buildFabricObject, fitText } from '../editor/fabricSync'
@@ -26,6 +26,10 @@ export function createCardRenderer(dpi: number): CardRenderer {
     canvas.backgroundColor = template.backgroundColor
     const sorted = [...template.elements].sort((a, b) => a.zIndex - b.zIndex)
     for (const element of sorted) {
+      // A lineCountVariant-tagged element (see TextElement.lineCountVariant) is one of two
+      // independent alternates for "the same" box — only the one matching this row's actual line
+      // count ever gets composited into the exported card; the other is skipped entirely.
+      if (element.type === 'text' && !matchesLineCountVariant(element, row)) continue
       const obj = buildFabricObject(element, units, heightMm)
       if (element.type === 'text') {
         const resolved = resolveBoundText(element, row)
