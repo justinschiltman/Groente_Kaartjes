@@ -209,6 +209,13 @@ export function buildFabricObject(
       scaleY: element.verticalScale ?? 1
     })
     fitText(textbox, element, units, cardHeightMm)
+    // Height isn't a free dimension on a Textbox (see readGeometryPatch) — Fabric's only way to
+    // visually honor a vertical drag is to stretch the glyphs (scaleY), which silently turned any
+    // top/bottom-edge or corner drag into the same distortion meant only for the deliberate
+    // "Verticale rek (%)" field (e.g. the whole-euros price). Only the width handles (reflow, the
+    // one thing a text box's drag should ever do) and rotation stay draggable; vertical stretch is
+    // now only ever set by explicitly typing a percentage.
+    textbox.setControlsVisibility({ mt: false, mb: false, tl: false, tr: false, bl: false, br: false })
     obj = textbox
   } else if (element.type === 'shape' && element.shape === 'rect') {
     const radiusPx = element.cornerRadius ? mmToPx(element.cornerRadius) : 0
