@@ -72,8 +72,20 @@ function compareSortValues(a: string | number | boolean | null, b: string | numb
   let cmp: number
   if (typeof a === 'number' && typeof b === 'number') cmp = a - b
   else if (typeof a === 'boolean' && typeof b === 'boolean') cmp = a === b ? 0 : a ? 1 : -1
-  else cmp = String(a).localeCompare(String(b), 'nl', { sensitivity: 'base' })
+  else cmp = String(a).localeCompare(String(b), 'nl', { sensitivity: 'base', numeric: true })
   return direction === 'asc' ? cmp : -cmp
+}
+
+/** Every value a search should be able to find a product by — not just what's shown in the current
+ * favorite/table cell: a multi-value field's whole history (every saved Top tekst/Tekst onder/Land
+ * van herkomst option, not only the current favorite) counts too, since the point of "op alles kunnen
+ * zoeken" is finding a product by anything ever typed into it, not just what happens to be active. */
+function searchableValues(p: Product): string[] {
+  return [p.name, p.orderNumber, p.scaleCode, p.supplierCode, ...p.text1.options, ...p.text2.options, ...p.countryOfOrigin.options]
+}
+
+function productMatchesQuery(p: Product, query: string): boolean {
+  return searchableValues(p).some((value) => value.toLowerCase().includes(query))
 }
 
 function toExportRow(p: Product): ProductExportRow {
@@ -114,7 +126,7 @@ function ProductsPage(): React.JSX.Element {
 
   const visibleProducts = useMemo(() => {
     const query = search.trim().toLowerCase()
-    const matched = query ? products.filter((p) => p.name.toLowerCase().includes(query) || p.orderNumber.toLowerCase().includes(query)) : products
+    const matched = query ? products.filter((p) => productMatchesQuery(p, query)) : products
     if (!sort) return matched
     return [...matched].sort((a, b) => compareSortValues(sortValue(a, sort.field), sortValue(b, sort.field), sort.direction))
   }, [products, search, sort])
@@ -247,7 +259,7 @@ function ProductsPage(): React.JSX.Element {
         <input
           type="text"
           className="products-search"
-          placeholder="Zoeken op naam of bestelnummer…"
+          placeholder="Zoeken op naam, bestelnummer, weegschaalcode, teksten…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
