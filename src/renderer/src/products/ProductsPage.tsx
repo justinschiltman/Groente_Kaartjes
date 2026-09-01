@@ -14,7 +14,6 @@ type SortField =
   | 'soldByWeight'
   | 'weightGrams'
   | 'pricePerKg'
-  | 'orderNumber'
   | 'scaleCode'
   | 'supplierCode'
   | 'text1'
@@ -41,8 +40,6 @@ function sortValue(product: Product, field: SortField): string | number | boolea
       return product.weightGrams
     case 'pricePerKg':
       return product.pricePerKg
-    case 'orderNumber':
-      return product.orderNumber || null
     case 'scaleCode':
       return product.scaleCode || null
     case 'supplierCode':
@@ -81,7 +78,7 @@ function compareSortValues(a: string | number | boolean | null, b: string | numb
  * van herkomst option, not only the current favorite) counts too, since the point of "op alles kunnen
  * zoeken" is finding a product by anything ever typed into it, not just what happens to be active. */
 function searchableValues(p: Product): string[] {
-  return [p.name, p.orderNumber, p.scaleCode, p.supplierCode, ...p.text1.options, ...p.text2.options, ...p.countryOfOrigin.options]
+  return [p.name, p.scaleCode, p.supplierCode, ...p.text1.options, ...p.text2.options, ...p.countryOfOrigin.options]
 }
 
 function productMatchesQuery(p: Product, query: string): boolean {
@@ -90,7 +87,6 @@ function productMatchesQuery(p: Product, query: string): boolean {
 
 function toExportRow(p: Product): ProductExportRow {
   return {
-    orderNumber: p.orderNumber,
     name: p.name,
     scaleCode: p.scaleCode,
     supplierCode: p.supplierCode,
@@ -108,8 +104,8 @@ function ProductsPage(): React.JSX.Element {
   const products = useProductStore((state) => state.products)
   const addProduct = useProductStore((state) => state.addProduct)
   const updateProduct = useProductStore((state) => state.updateProduct)
-  const upsertByOrderNumber = useProductStore((state) => state.upsertByOrderNumber)
-  const updateTextFieldsByOrderNumber = useProductStore((state) => state.updateTextFieldsByOrderNumber)
+  const upsertBySupplierCode = useProductStore((state) => state.upsertBySupplierCode)
+  const updateTextFieldsBySupplierCode = useProductStore((state) => state.updateTextFieldsBySupplierCode)
   const replaceAllFromImport = useProductStore((state) => state.replaceAllFromImport)
   const resetAllQuantities = useProductStore((state) => state.resetAllQuantities)
 
@@ -183,7 +179,7 @@ function ProductsPage(): React.JSX.Element {
 
       if (rows.length === 0 && skipped > 0) {
         setImportError(
-          `Geen enkele rij herkend (${skipped} rij(en) overgeslagen). Controleer of de kolom "Bestelnummer" bestaat en die naam heeft — dat is de enige verplichte kolom.`
+          `Geen enkele rij herkend (${skipped} rij(en) overgeslagen). Controleer of de kolom "Bestelcode (leverancier)" bestaat en die naam heeft — dat is de enige verplichte kolom.`
         )
         return
       }
@@ -196,21 +192,21 @@ function ProductsPage(): React.JSX.Element {
         let updated = 0
         let notFound = 0
         for (const row of rows) {
-          const outcome = updateTextFieldsByOrderNumber(row)
+          const outcome = updateTextFieldsBySupplierCode(row)
           if (outcome === 'updated') updated++
           else notFound++
         }
-        const notFoundNote = notFound > 0 ? `, ${notFound} bestelnummer(s) niet gevonden (overgeslagen, niet aangemaakt)` : ''
-        setImportSummary(`${updated} product(en) bijgewerkt (alleen Naam, Top tekst, Tekst onder en Bestelcode)${notFoundNote}.`)
+        const notFoundNote = notFound > 0 ? `, ${notFound} bestelcode(s) niet gevonden (overgeslagen, niet aangemaakt)` : ''
+        setImportSummary(`${updated} product(en) bijgewerkt (alleen Naam, Top tekst en Tekst onder)${notFoundNote}.`)
       } else {
         let created = 0
         let updated = 0
         for (const row of rows) {
-          const outcome = upsertByOrderNumber(row)
+          const outcome = upsertBySupplierCode(row)
           if (outcome === 'created') created++
           else updated++
         }
-        const skippedNote = skipped > 0 ? `, ${skipped} rij(en) overgeslagen (geen Bestelnummer)` : ''
+        const skippedNote = skipped > 0 ? `, ${skipped} rij(en) overgeslagen (geen Bestelcode)` : ''
         setImportSummary(`${created} nieuw, ${updated} bijgewerkt (${rows.length} rijen verwerkt${skippedNote}) — allemaal op 1 kaartje gezet.`)
       }
     } catch (error) {
@@ -242,7 +238,7 @@ function ProductsPage(): React.JSX.Element {
       )
       if (!confirmed) return
       const created = replaceAllFromImport(rows)
-      const skippedNote = skipped > 0 ? `, ${skipped} rij(en) overgeslagen (geen Bestelnummer)` : ''
+      const skippedNote = skipped > 0 ? `, ${skipped} rij(en) overgeslagen (geen Bestelcode)` : ''
       setImportSummary(
         `Catalogus volledig vervangen: ${created} product(en) (${rows.length} rijen verwerkt${skippedNote}) — allemaal op 1 kaartje gezet, zonder prijs en zonder Actie (die vul je zelf weer aan).`
       )
@@ -259,7 +255,7 @@ function ProductsPage(): React.JSX.Element {
         <input
           type="text"
           className="products-search"
-          placeholder="Zoeken op naam, bestelnummer, weegschaalcode, teksten…"
+          placeholder="Zoeken op naam, bestelcode, weegschaalcode, teksten…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -269,10 +265,10 @@ function ProductsPage(): React.JSX.Element {
         </button>
         <label
           className="field checkbox-field products-textonly-toggle"
-          title="Werkt alleen bestaande producten bij (matcht op Bestelnummer) en past alleen Naam, Top tekst, Tekst onder en Bestelcode (leverancier) aan — Prijs, Actie, Per gewicht, Gewicht, Weegschaalcode en Land van herkomst blijven ongewijzigd. Er worden geen nieuwe producten aangemaakt; een bestelnummer dat nog niet bestaat wordt overgeslagen."
+          title="Werkt alleen bestaande producten bij (matcht op Bestelcode (leverancier)) en past alleen Naam, Top tekst en Tekst onder aan — Prijs, Actie, Per gewicht, Gewicht, Weegschaalcode en Land van herkomst blijven ongewijzigd. Er worden geen nieuwe producten aangemaakt; een bestelcode die nog niet bestaat wordt overgeslagen."
         >
           <input type="checkbox" checked={textOnlyImport} onChange={(e) => setTextOnlyImport(e.target.checked)} />
-          <span>Alleen Naam/Top tekst/Tekst onder/Bestelcode bijwerken</span>
+          <span>Alleen Naam/Top tekst/Tekst onder bijwerken</span>
         </label>
         <button
           type="button"
@@ -342,7 +338,6 @@ function ProductsPage(): React.JSX.Element {
                 <SortableHeader label="Per gewicht" field="soldByWeight" sort={sort} onSort={handleSort} />
                 <SortableHeader label="Gewicht" field="weightGrams" sort={sort} onSort={handleSort} />
                 <SortableHeader label="Prijs per kilo" field="pricePerKg" sort={sort} onSort={handleSort} />
-                <SortableHeader label="Bestelnummer" field="orderNumber" sort={sort} onSort={handleSort} />
                 <SortableHeader label="Weegschaalcode" field="scaleCode" sort={sort} onSort={handleSort} />
                 <SortableHeader label="Bestelcode (leverancier)" field="supplierCode" sort={sort} onSort={handleSort} />
                 <SortableHeader label="Top tekst" field="text1" sort={sort} onSort={handleSort} />
@@ -368,7 +363,7 @@ function ProductsPage(): React.JSX.Element {
               ))}
               {visibleProducts.length === 0 && (
                 <tr className="products-table-empty-row">
-                  <td colSpan={13}>Geen producten gevonden voor &quot;{search}&quot;.</td>
+                  <td colSpan={12}>Geen producten gevonden voor &quot;{search}&quot;.</td>
                 </tr>
               )}
             </tbody>
@@ -505,7 +500,6 @@ function ProductRow({ product, onOpen, onUpdate }: ProductRowProps): React.JSX.E
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
         />
       </td>
-      <td>{product.orderNumber}</td>
       <td>{product.scaleCode}</td>
       <td>{product.supplierCode}</td>
       <td>{product.text1.favorite}</td>

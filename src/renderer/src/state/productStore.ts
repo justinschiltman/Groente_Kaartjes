@@ -96,10 +96,7 @@ interface ProductState {
   updateProduct: (
     id: string,
     patch: Partial<
-      Pick<
-        Product,
-        'name' | 'orderNumber' | 'scaleCode' | 'supplierCode' | 'quantity' | 'isPromotion' | 'soldByWeight' | 'pricePerKg' | 'weightGrams'
-      >
+      Pick<Product, 'name' | 'scaleCode' | 'supplierCode' | 'quantity' | 'isPromotion' | 'soldByWeight' | 'pricePerKg' | 'weightGrams'>
     >
   ) => void
   deleteProduct: (id: string) => void
@@ -108,34 +105,35 @@ interface ProductState {
   removeOption: (id: string, field: MultiValueFieldKey, value: string) => void
   setFavorite: (id: string, field: MultiValueFieldKey, value: string) => void
 
-  /** Bulk-import upsert: matches by orderNumber (case/whitespace-insensitive), creating a new product
-   * if none matches. Only ever adds+favorites the given text values, never removes existing alternates.
-   * Every row unconditionally sets quantity to 1 — importing a sheet means "order one card for
-   * everything in it" by default; price/actie/eenheid are overwritten when the sheet provides them. */
-  upsertByOrderNumber: (data: ProductImportRow) => 'created' | 'updated'
+  /** Bulk-import upsert: matches by supplierCode/Bestelcode (leverancier) (case/whitespace-
+   * insensitive), creating a new product if none matches. This catalog's own former "Bestelnummer" was
+   * retired as unused, so this — the supplier's own code — is now the sole join key: a row with no
+   * supplierCode is skipped upstream (see productImport.service.ts) since there's nothing to match or
+   * identify a new product by. Only ever adds+favorites the given text values, never removes existing
+   * alternates. Every row unconditionally sets quantity to 1 — importing a sheet means "order one card
+   * for everything in it" by default; price/actie/eenheid are overwritten when the sheet provides them. */
+  upsertBySupplierCode: (data: ProductImportRow) => 'created' | 'updated'
 
-  /** Narrow-scope import for correcting Naam/Top tekst/Tekst onder/Bestelcode across an existing
-   * catalog without the collateral risk a full upsertByOrderNumber carries: a re-exported sheet often
-   * still has the Actie/Per gewicht/Prijs/Gewicht columns present but every cell blank (nothing to do
-   * with those fields — the sheet just wasn't about them), and importProductsExcel reads a
-   * blank-but-present boolean column as an explicit "Nee", which would silently reset
-   * promotions/eenheid across the whole catalog. This only ever touches name/text1/text2/supplierCode
-   * (text1/text2 fully REPLACED — not merged like upsertByOrderNumber — since the point here is
-   * correcting wrong text, not accumulating alternates; supplierCode only overwrites when the row
-   * actually has one, same as scaleCode elsewhere) on a product that already exists; an orderNumber
-   * with no match is reported 'not-found' rather than creating a new, mostly-empty product. */
-  updateTextFieldsByOrderNumber: (data: {
-    orderNumber: string
+  /** Narrow-scope import for correcting Naam/Top tekst/Tekst onder across an existing catalog without
+   * the collateral risk a full upsertBySupplierCode carries: a re-exported sheet often still has the
+   * Actie/Per gewicht/Prijs/Gewicht columns present but every cell blank (nothing to do with those
+   * fields — the sheet just wasn't about them), and importProductsExcel reads a blank-but-present
+   * boolean column as an explicit "Nee", which would silently reset promotions/eenheid across the whole
+   * catalog. This only ever touches name/text1/text2 (fully REPLACED — not merged like
+   * upsertBySupplierCode — since the point here is correcting wrong text, not accumulating alternates)
+   * on a product that already exists, matched by supplierCode; no match is reported 'not-found' rather
+   * than creating a new, mostly-empty product. */
+  updateTextFieldsBySupplierCode: (data: {
+    supplierCode: string
     name?: string
     text1?: string
     text2?: string
-    supplierCode?: string
   }) => 'updated' | 'not-found'
 
   /** Wipes the ENTIRE catalog first (every product, including price/actie/per-gewicht/quantity — not
-   * just the ones in the given rows) and rebuilds it from scratch via upsertByOrderNumber, so this is
+   * just the ones in the given rows) and rebuilds it from scratch via upsertBySupplierCode, so this is
    * explicitly a full replace, not an incremental import. Returns the number of products created (a row
-   * whose orderNumber duplicates an earlier row in the same batch updates that one instead of creating
+   * whose supplierCode duplicates an earlier row in the same batch updates that one instead of creating
    * a second product, so this can be fewer than rows.length). The caller is responsible for confirming
    * with the user before calling this — it's irreversible from here. */
   replaceAllFromImport: (rows: ProductImportRow[]) => number
@@ -148,7 +146,7 @@ interface ProductState {
   resetProcessed: (ids: string[]) => void
 
   /** Sets every product's quantity to 0 in one go. Importing always puts every matched/created product
-   * at "1 kaartje" by design (see upsertByOrderNumber) — right after a big catalog-building import
+   * at "1 kaartje" by design (see upsertBySupplierCode) — right after a big catalog-building import
    * (hundreds of rows, most not meant to be printed this week) that leaves everything "ready" at once,
    * which is exactly what makes "Verwerken" warn about every product missing weekly fields it hasn't
    * gotten yet. This is the fast way back to a clean slate to then pick just what's actually wanted. */
@@ -216,8 +214,8 @@ export const useProductStore = create<ProductState>((set, get) => {
         return { ...p, [field]: { ...current, favorite: value }, updatedAt: new Date().toISOString() }
       }),
 
-    upsertByOrderNumber: (data) => {
-      const existing = get().products.find((p) => normalize(p.orderNumber) === normalize(data.orderNumber))
+    upsertBySupplierCode: (data) => {
+      const existing = get().products.find((p) => normalize(p.supplierCode) === normalize(data.supplierCode))
       const now = new Date().toISOString()
 
       if (existing) {
@@ -243,9 +241,8 @@ export const useProductStore = create<ProductState>((set, get) => {
       const fresh: Product = {
         id: crypto.randomUUID(),
         name: data.name?.trim() ?? '',
-        orderNumber: data.orderNumber.trim(),
         scaleCode: data.scaleCode?.trim() ?? '',
-        supplierCode: data.supplierCode?.trim() ?? '',
+        supplierCode: data.supplierCode.trim(),
         text1: multiFieldFromImport(data.text1),
         text2: multiFieldFromImport(data.text2),
         countryOfOrigin: multiFieldFromImport(data.countryOfOrigin),
@@ -263,15 +260,14 @@ export const useProductStore = create<ProductState>((set, get) => {
       return 'created'
     },
 
-    updateTextFieldsByOrderNumber: (data) => {
-      const existing = get().products.find((p) => normalize(p.orderNumber) === normalize(data.orderNumber))
+    updateTextFieldsBySupplierCode: (data) => {
+      const existing = get().products.find((p) => normalize(p.supplierCode) === normalize(data.supplierCode))
       if (!existing) return 'not-found'
       updateOne(existing.id, (p) => ({
         ...p,
         name: data.name?.trim() || p.name,
         text1: data.text1 ? multiFieldFromImport(data.text1) : p.text1,
         text2: data.text2 ? multiFieldFromImport(data.text2) : p.text2,
-        supplierCode: data.supplierCode?.trim() || p.supplierCode,
         updatedAt: new Date().toISOString()
       }))
       return 'updated'
@@ -282,7 +278,7 @@ export const useProductStore = create<ProductState>((set, get) => {
       persistCurrent()
       let created = 0
       for (const row of rows) {
-        if (get().upsertByOrderNumber(row) === 'created') created++
+        if (get().upsertBySupplierCode(row) === 'created') created++
       }
       return created
     },

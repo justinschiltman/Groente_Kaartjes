@@ -23,12 +23,13 @@ export function multiValueToExportText(field: MultiValueField): string {
 export interface Product {
   id: string
   name: string
-  orderNumber: string
   /** The code entered at the weighing scale for loose produce — always the same value for a given
-   * product, like orderNumber, so it's a plain field rather than a MultiValueField. */
+   * product, so it's a plain field rather than a MultiValueField. */
   scaleCode: string
-  /** The supplier's own product/order code (distinct from orderNumber, which is this catalog's own
-   * "GK000N" identifier) — plain field for the same reason as scaleCode. */
+  /** The supplier's own product/order code — this catalog's join key: importProductsExcel matches an
+   * Excel row to an existing product by this value (see productStore.ts's upsertBySupplierCode), the
+   * same role the catalog's own "Bestelnummer" used to play before it was retired as unused. Plain
+   * field for the same reason as scaleCode. */
   supplierCode: string
   text1: MultiValueField
   text2: MultiValueField
@@ -69,7 +70,6 @@ export function createDefaultProduct(): Product {
   return {
     id: crypto.randomUUID(),
     name: '',
-    orderNumber: '',
     scaleCode: '',
     supplierCode: '',
     text1: createMultiValueField(),
@@ -86,7 +86,7 @@ export function createDefaultProduct(): Product {
   }
 }
 
-/** Field keys that hold several saved options with a favorite, as opposed to name/orderNumber which
+/** Field keys that hold several saved options with a favorite, as opposed to name/supplierCode which
  * are always a single plain value. */
 export const MULTI_VALUE_FIELDS = ['text1', 'text2', 'countryOfOrigin', 'soldPer'] as const
 export type MultiValueFieldKey = (typeof MULTI_VALUE_FIELDS)[number]
@@ -97,11 +97,10 @@ export type MultiValueFieldKey = (typeof MULTI_VALUE_FIELDS)[number]
  * text1/text2 were labeled "Tekst 1"/"Tekst 2" before — mergeProductRow.ts still emits the merged
  * row under those old labels too, so existing designs bound to them keep resolving unchanged. */
 export const PRODUCT_FIELD_LABELS: Record<
-  'name' | 'orderNumber' | 'scaleCode' | 'supplierCode' | 'isPromotion' | 'soldByWeight' | MultiValueFieldKey,
+  'name' | 'scaleCode' | 'supplierCode' | 'isPromotion' | 'soldByWeight' | MultiValueFieldKey,
   string
 > = {
   name: 'Naam',
-  orderNumber: 'Bestelnummer',
   scaleCode: 'Weegschaalcode',
   supplierCode: 'Bestelcode (leverancier)',
   text1: 'Top tekst',
@@ -114,16 +113,18 @@ export const PRODUCT_FIELD_LABELS: Record<
 
 /**
  * One row of a bulk product import — parsed in the main process from an Excel sheet, applied in the
- * renderer via productStore.upsertByOrderNumber. Each present field only ever ADDS a saved option (for
+ * renderer via productStore.upsertBySupplierCode. Each present field only ever ADDS a saved option (for
  * MultiValueFields) or overwrites the current value (for plain fields); it never removes previously
  * saved alternates. Every row also unconditionally sets quantity to 1 on its matched/created product
  * (see productStore.ts) — importing a sheet means "order one card for everything in it" by default.
  */
 export interface ProductImportRow {
-  orderNumber: string
+  /** The join key: importProductsExcel skips any row without one (see ProductImportResult's
+   * skippedRowCount) — there's nothing to match an existing product against, or to identify a new one
+   * by on the next import. */
+  supplierCode: string
   name?: string
   scaleCode?: string
-  supplierCode?: string
   text1?: string
   text2?: string
   countryOfOrigin?: string
@@ -138,8 +139,8 @@ export interface ProductImportRow {
 
 /** Result of a "Producten importeren" pick — always one of exactly these outcomes, so the renderer
  * never has to guess why nothing happened (matches the canceled/error/success shape ExportPdfResult
- * already uses). skippedRowCount counts data rows that had no recognizable Bestelnummer and so
- * couldn't be imported (Bestelnummer is the only required column). */
+ * already uses). skippedRowCount counts data rows that had no recognizable Bestelcode (leverancier)
+ * and so couldn't be imported (that's the only required column). */
 export interface ProductImportResult {
   canceled: boolean
   rows?: ProductImportRow[]
@@ -155,7 +156,6 @@ export interface ProductImportResult {
  * something to hand-edit, so exporting it as if it were editable data would be misleading.
  */
 export interface ProductExportRow {
-  orderNumber: string
   name: string
   scaleCode: string
   supplierCode: string

@@ -19,7 +19,6 @@ const PORTION_PRICE_SPLIT_LABELS = currencySplitLabels(PORTION_PRICE_LABEL)
  * ever pick the current labels below. */
 export const AVAILABLE_FIELDS = [
   PRODUCT_FIELD_LABELS.name,
-  PRODUCT_FIELD_LABELS.orderNumber,
   PRODUCT_FIELD_LABELS.scaleCode,
   PRODUCT_FIELD_LABELS.supplierCode,
   PRODUCT_FIELD_LABELS.text1,

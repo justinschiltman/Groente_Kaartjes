@@ -8,7 +8,6 @@ import type { ProductImportRow, ProductImportResult } from '@shared/types/produc
 type FieldKind = 'string' | 'number' | 'boolean'
 
 const COLUMN_ALIASES: Record<keyof ProductImportRow, { aliases: string[]; kind: FieldKind }> = {
-  orderNumber: { aliases: ['bestelnummer', 'ordernummer', 'order nummer', 'artikelnummer'], kind: 'string' },
   name: { aliases: ['naam'], kind: 'string' },
   scaleCode: { aliases: ['weegschaalcode', 'weegschaal code', 'schaalcode', 'plu', 'plu code'], kind: 'string' },
   supplierCode: {
@@ -119,8 +118,9 @@ function parseRows(worksheet: ExcelJS.Worksheet): { rows: ProductImportRow[]; sk
         (record as Record<string, unknown>)[field] = text
       }
     })
-    // Order number is the join key — a row without one can't be matched or created meaningfully.
-    if (record.orderNumber) rows.push(record as ProductImportRow)
+    // Bestelcode (leverancier) is the join key — a row without one can't be matched or created
+    // meaningfully.
+    if (record.supplierCode) rows.push(record as ProductImportRow)
     else skippedRowCount++
   }
 

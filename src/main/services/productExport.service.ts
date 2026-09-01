@@ -6,7 +6,6 @@ import type { ProductExportRow, ProductExportResult } from '@shared/types/produc
 // field is fully computed, not exported — see ProductExportRow's doc comment) — so the file this
 // writes re-imports cleanly with no column-mapping surprises.
 const COLUMNS = [
-  { header: 'Bestelnummer', key: 'orderNumber', width: 16 },
   { header: 'Naam', key: 'name', width: 22 },
   { header: 'Weegschaalcode', key: 'scaleCode', width: 15 },
   { header: 'Bestelcode (leverancier)', key: 'supplierCode', width: 20 },
@@ -49,7 +48,6 @@ export async function exportProductsExcel(rows: ProductExportRow[]): Promise<Pro
 
     for (const row of rows) {
       sheet.addRow({
-        orderNumber: row.orderNumber,
         name: row.name,
         scaleCode: row.scaleCode,
         supplierCode: row.supplierCode,
@@ -63,11 +61,11 @@ export async function exportProductsExcel(rows: ProductExportRow[]): Promise<Pro
       })
     }
 
-    // Ja/Nee dropdown on Actie (I) and Per gewicht (J), same as the sjabloon this pairs with.
+    // Ja/Nee dropdown on Actie (H) and Per gewicht (I), same as the sjabloon this pairs with.
     const lastRow = rows.length + 1
     for (let r = 2; r <= lastRow; r++) {
+      sheet.getCell(`H${r}`).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Ja,Nee"'] }
       sheet.getCell(`I${r}`).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Ja,Nee"'] }
-      sheet.getCell(`J${r}`).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Ja,Nee"'] }
     }
 
     await workbook.xlsx.writeFile(saveResult.filePath)
