@@ -22,7 +22,12 @@ const EU_COUNTRY_NAMES = [
   'luxemburg',
   'malta',
   'nederland',
+  'nederlandse',
+  'nederlands',
+  'nl',
   'holland',
+  'hollandse',
+  'hollands',
   'polen',
   'portugal',
   'roemenie',
@@ -32,6 +37,10 @@ const EU_COUNTRY_NAMES = [
   'zweden'
 ]
 
+// Not country names, but a Dutch supermarket writes these in "Land van herkomst" to mean exactly
+// the same thing as "Nederland" — grown close by rather than imported — so they resolve the same way.
+const LOCAL_SYNONYMS = ['lokaal', 'lokale', 'regio', 'regionaal', 'regionale']
+
 // Unicode combining diacritical marks block (U+0300-U+036F) — written as an explicit escape range
 // rather than literal characters so the regex itself stays unambiguous to read and edit.
 const COMBINING_MARKS = /[̀-ͯ]/g
@@ -40,7 +49,7 @@ function normalize(value: string): string {
   return value.trim().toLowerCase().normalize('NFD').replace(COMBINING_MARKS, '')
 }
 
-const EU_COUNTRY_SET = new Set(EU_COUNTRY_NAMES.map(normalize))
+const EU_COUNTRY_SET = new Set([...EU_COUNTRY_NAMES, ...LOCAL_SYNONYMS].map(normalize))
 
 /** Binding-key label for the derived EU/non-EU field (see mergeProductRow.ts) — not a stored Product
  * field, so it lives here rather than in PRODUCT_FIELD_LABELS. */

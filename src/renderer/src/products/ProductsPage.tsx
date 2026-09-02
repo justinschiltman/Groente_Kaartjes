@@ -110,6 +110,12 @@ function ProductsPage(): React.JSX.Element {
   const resetAllQuantities = useProductStore((state) => state.resetAllQuantities)
 
   const [search, setSearch] = useState('')
+  // Which product ids the current search matched, frozen at the moment the query was last applied —
+  // null means no filter is active (show everything live). Editing a product's data (e.g. unchecking
+  // Actie while filtered on Actie) must NOT make it drop out of view while you're still working on it,
+  // so this only gets recomputed when the query text itself changes or the search box is focused again
+  // (see applyFilter) — never merely because `products` changed underneath it.
+  const [visibleIds, setVisibleIds] = useState<string[] | null>(null)
   const [sort, setSort] = useState<SortState | null>(null)
   const [editingProductId, setEditingProductId] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
@@ -120,12 +126,22 @@ function ProductsPage(): React.JSX.Element {
   const [exportSummary, setExportSummary] = useState<string | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
 
+  // Re-applies the search against the CURRENT product list — called on every keystroke (normal live
+  // search) and whenever the search box regains focus, so clicking back into it after editing products
+  // is the explicit "refresh now" action. Never runs just because `products` changed on its own.
+  function applyFilter(query: string): void {
+    const trimmed = query.trim().toLowerCase()
+    setVisibleIds(trimmed ? products.filter((p) => productMatchesQuery(p, trimmed)).map((p) => p.id) : null)
+  }
+
   const visibleProducts = useMemo(() => {
-    const query = search.trim().toLowerCase()
-    const matched = query ? products.filter((p) => productMatchesQuery(p, query)) : products
+    const matched =
+      visibleIds === null
+        ? products
+        : visibleIds.map((id) => products.find((p) => p.id === id)).filter((p): p is Product => p !== undefined)
     if (!sort) return matched
     return [...matched].sort((a, b) => compareSortValues(sortValue(a, sort.field), sortValue(b, sort.field), sort.direction))
-  }, [products, search, sort])
+  }, [products, visibleIds, sort])
 
   const orderedCount = products.filter((p) => p.quantity > 0).length
   const totalCards = products.reduce((sum, p) => sum + p.quantity, 0)
@@ -257,7 +273,11 @@ function ProductsPage(): React.JSX.Element {
           className="products-search"
           placeholder="Zoeken op naam, bestelcode, weegschaalcode, teksten…"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value)
+            applyFilter(e.target.value)
+          }}
+          onFocus={() => applyFilter(search)}
         />
         <button type="button" className={importing ? 'products-import-button importing' : 'products-import-button'} onClick={handleImport} disabled={importing}>
           {importing && <span className="spinner" aria-hidden="true" />}

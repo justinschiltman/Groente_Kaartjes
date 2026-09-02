@@ -1110,6 +1110,17 @@ button {
   color: #d9a441;
 }
 
+.multi-option-edit {
+  border: none;
+  background: none;
+  padding: 0.35rem 0.5rem;
+  color: #8a958a;
+}
+
+.multi-option-edit:hover {
+  color: #3a7d44;
+}
+
 .multi-option-remove {
   border: none;
   background: none;
@@ -1119,6 +1130,25 @@ button {
 
 .multi-option-remove:hover {
   color: #b3261e;
+}
+
+.multi-option.editing {
+  padding: 0.2rem;
+}
+
+.multi-option-edit-input {
+  flex: 1 1 auto;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid #3a7d44;
+  border-radius: 3px;
+  width: 100%;
+}
+
+textarea.multi-option-edit-input {
+  resize: vertical;
+  min-height: 2rem;
 }
 
 .multi-option-add {

@@ -104,6 +104,13 @@ interface ProductState {
   addOption: (id: string, field: MultiValueFieldKey, value: string) => void
   removeOption: (id: string, field: MultiValueFieldKey, value: string) => void
   setFavorite: (id: string, field: MultiValueFieldKey, value: string) => void
+  /** Edits an existing option's text in place — keeps its position and, if it was the favorite, keeps
+   * it favorited under the new text — rather than the only alternative being remove-then-re-add, which
+   * lost both. Renaming to a value that already matches one of the field's OTHER options (same
+   * case/whitespace-insensitive comparison as addOption) merges into that existing option instead of
+   * creating a duplicate: the one being renamed is dropped, and the pre-existing one is kept (and
+   * favorited, if the renamed one was favorite). */
+  renameOption: (id: string, field: MultiValueFieldKey, oldValue: string, newValue: string) => void
 
   /** Bulk-import upsert: matches by supplierCode/Bestelcode (leverancier) (case/whitespace-
    * insensitive), creating a new product if none matches. This catalog's own former "Bestelnummer" was
@@ -212,6 +219,17 @@ export const useProductStore = create<ProductState>((set, get) => {
         const current = p[field]
         if (!current.options.includes(value)) return p
         return { ...p, [field]: { ...current, favorite: value }, updatedAt: new Date().toISOString() }
+      }),
+
+    renameOption: (id, field, oldValue, newValue) =>
+      updateOne(id, (p) => {
+        const current = p[field]
+        const trimmed = newValue.trim()
+        if (!trimmed || trimmed === oldValue || !current.options.includes(oldValue)) return p
+        const duplicate = current.options.find((o) => o !== oldValue && normalize(o) === normalize(trimmed))
+        const options = duplicate ? current.options.filter((o) => o !== oldValue) : current.options.map((o) => (o === oldValue ? trimmed : o))
+        const favorite = current.favorite === oldValue ? (duplicate ?? trimmed) : current.favorite
+        return { ...p, [field]: { options, favorite }, updatedAt: new Date().toISOString() }
       }),
 
     upsertBySupplierCode: (data) => {

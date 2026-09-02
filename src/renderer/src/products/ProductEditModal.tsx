@@ -24,6 +24,7 @@ function ProductEditModal({ productId, onClose }: ProductEditModalProps): React.
   const addOption = useProductStore((state) => state.addOption)
   const setFavorite = useProductStore((state) => state.setFavorite)
   const removeOption = useProductStore((state) => state.removeOption)
+  const renameOption = useProductStore((state) => state.renameOption)
   const deleteProduct = useProductStore((state) => state.deleteProduct)
 
   const [name, setName] = useState(product?.name ?? '')
@@ -210,6 +211,7 @@ function ProductEditModal({ productId, onClose }: ProductEditModalProps): React.
               onAddOption={(value) => addOption(productId, key, value)}
               onSetFavorite={(value) => setFavorite(productId, key, value)}
               onRemoveOption={(value) => removeOption(productId, key, value)}
+              onRenameOption={(oldValue, newValue) => renameOption(productId, key, oldValue, newValue)}
             />
           ))}
 
