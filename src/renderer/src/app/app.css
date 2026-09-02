@@ -909,6 +909,15 @@ button {
   border-radius: 4px;
 }
 
+.products-soldper-input {
+  width: 8rem;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid #c9d3c9;
+  border-radius: 4px;
+}
+
 .products-weight-input-wrap {
   display: inline-flex;
   align-items: center;

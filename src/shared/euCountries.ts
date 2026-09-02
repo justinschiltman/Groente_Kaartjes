@@ -57,11 +57,16 @@ export const EU_STATUS_LABEL = 'EU/Niet-EU'
 
 /** 'EU' or 'Niet-EU' for a recognized Dutch country name, or '' when the name isn't recognized —
  * an unrecognized country renders blank (same as any other unresolved bound field) rather than
- * risking a confidently wrong origin label. */
+ * risking a confidently wrong origin label. Recognizes the country not just as the WHOLE field value
+ * but also as one dash/comma/slash-separated segment of it, since "Land van herkomst" is often typed
+ * as "<plaats> - <land>" (e.g. "Terwolde - NL") — splitting only on that punctuation (not on every
+ * space) keeps multi-word names like "Tsjechische republiek" intact as a single segment. */
 export function deriveEuStatus(countryName: string): string {
   const normalized = normalize(countryName)
   if (!normalized) return ''
-  return EU_COUNTRY_SET.has(normalized) ? 'EU' : 'Niet-EU'
+  if (EU_COUNTRY_SET.has(normalized)) return 'EU'
+  const segments = countryName.split(/[-,/|;()]+/).map(normalize).filter(Boolean)
+  return segments.some((segment) => EU_COUNTRY_SET.has(segment)) ? 'EU' : 'Niet-EU'
 }
 
 /** Binding-key label for the fuller "EU landbouw"/"Niet-EU landbouw" phrase some card designs need

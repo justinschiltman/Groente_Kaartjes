@@ -10,12 +10,14 @@ interface ProductEditModalProps {
   onClose: () => void
 }
 
-// "Verkocht per" used to be here too, as a manually-typed MultiOptionField — it's now derived
-// automatically from Per gewicht/Gewicht (see deriveSoldPer) and shown as a read-only line instead.
+// soldPer's saved options are an OPTIONAL override on top of the automatic per-stuk/per-X-gram text
+// (see mergeProductRow.ts's effectiveSoldPer) — for phrasings deriveSoldPer can't produce, like
+// "per zak" or "per bos". Leaving it empty just falls back to the automatic text below.
 const MULTI_FIELD_CONFIG: { key: MultiValueFieldKey; label: string; allowLineBreaks?: boolean }[] = [
   { key: 'text1', label: 'Top tekst' },
   { key: 'text2', label: 'Tekst onder', allowLineBreaks: true },
-  { key: 'countryOfOrigin', label: 'Land van herkomst' }
+  { key: 'countryOfOrigin', label: 'Land van herkomst' },
+  { key: 'soldPer', label: 'Verkocht per (optioneel, overschrijft de automatische tekst)' }
 ]
 
 function ProductEditModal({ productId, onClose }: ProductEditModalProps): React.JSX.Element | null {
@@ -200,7 +202,7 @@ function ProductEditModal({ productId, onClose }: ProductEditModalProps): React.
             )}
           </div>
 
-          <p className="empty-hint">Verkocht per: {deriveSoldPer(product) ?? '— (vul eerst Gewicht in)'}</p>
+          <p className="empty-hint">Automatische standaard voor Verkocht per: {deriveSoldPer(product) ?? '— (vul eerst Gewicht in)'}</p>
 
           {MULTI_FIELD_CONFIG.map(({ key, label, allowLineBreaks }) => (
             <MultiOptionField

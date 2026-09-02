@@ -31,11 +31,19 @@ const BOOLEAN_LABELS = { true: 'Ja', false: 'Nee' }
 
 /** Derives "Verkocht per" straight from soldByWeight/weightGrams — "per stuk" when sold by piece,
  * "per 250 gram" (etc.) once a weight-sold product's amount is filled in, or null while it isn't yet.
- * Used both for the actual card-bound value (productToRow) and for the read-only preview shown next to
- * the Gewicht column in ProductsPage, so the two can never drift apart. */
+ * This is the DEFAULT, used whenever product.soldPer has no override — see effectiveSoldPer. */
 export function deriveSoldPer(product: Pick<Product, 'soldByWeight' | 'weightGrams'>): string | null {
   if (!product.soldByWeight) return 'per stuk'
   return product.weightGrams !== null ? `per ${product.weightGrams} gram` : null
+}
+
+/** The "Verkocht per" text a card actually shows: product.soldPer.favorite when the user has
+ * explicitly typed one (e.g. "per zak", "per bos" — phrasings deriveSoldPer can't produce from just
+ * soldByWeight/weightGrams), otherwise the automatic per-stuk/per-X-gram default. Used for the actual
+ * card-bound value (productToRow) and for the editable "Verkocht per" column/field in the Producten
+ * UI, so the two can never drift apart. */
+export function effectiveSoldPer(product: Pick<Product, 'soldByWeight' | 'weightGrams' | 'soldPer'>): string | null {
+  return product.soldPer.favorite || deriveSoldPer(product)
 }
 
 /**
@@ -54,11 +62,7 @@ export function productToRow(product: Product): DataRow {
     [LEGACY_TEXT_LABELS.text1]: product.text1.favorite || null,
     [LEGACY_TEXT_LABELS.text2]: product.text2.favorite || null,
     [PRODUCT_FIELD_LABELS.countryOfOrigin]: product.countryOfOrigin.favorite || null,
-    // Derived from soldByWeight/weightGrams rather than product.soldPer (a manually-typed field that
-    // used to require re-typing "per stuk"/"per 250 gram" on every single product) — soldByWeight
-    // already says whether it's sold loose by weight or per piece, and weightGrams already says how
-    // much, so the correct phrasing here was always fully implied by those two, never a separate fact.
-    [PRODUCT_FIELD_LABELS.soldPer]: deriveSoldPer(product),
+    [PRODUCT_FIELD_LABELS.soldPer]: effectiveSoldPer(product),
     [EU_STATUS_LABEL]: deriveEuStatusLandbouw(product.countryOfOrigin.favorite) || null,
     [EU_STATUS_LANDBOUW_LABEL]: deriveEuStatusLandbouw(product.countryOfOrigin.favorite) || null,
     [PRODUCT_FIELD_LABELS.isPromotion]: product.isPromotion ? BOOLEAN_LABELS.true : BOOLEAN_LABELS.false,

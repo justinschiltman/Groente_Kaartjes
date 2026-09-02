@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useProductStore } from '@renderer/state/productStore'
 import { parseDecimalNl } from '@shared/format'
-import { deriveSoldPer } from '@shared/mergeProductRow'
+import { deriveSoldPer, effectiveSoldPer } from '@shared/mergeProductRow'
 import { multiValueToExportText } from '@shared/types/product'
 import type { Product, ProductExportRow } from '@shared/types/product'
 import ProcessButton from '../export/ProcessButton'
@@ -51,7 +51,7 @@ function sortValue(product: Product, field: SortField): string | number | boolea
     case 'countryOfOrigin':
       return product.countryOfOrigin.favorite || null
     case 'soldPer':
-      return deriveSoldPer(product)
+      return effectiveSoldPer(product)
   }
 }
 
@@ -78,7 +78,15 @@ function compareSortValues(a: string | number | boolean | null, b: string | numb
  * van herkomst option, not only the current favorite) counts too, since the point of "op alles kunnen
  * zoeken" is finding a product by anything ever typed into it, not just what happens to be active. */
 function searchableValues(p: Product): string[] {
-  return [p.name, p.scaleCode, p.supplierCode, ...p.text1.options, ...p.text2.options, ...p.countryOfOrigin.options]
+  return [
+    p.name,
+    p.scaleCode,
+    p.supplierCode,
+    ...p.text1.options,
+    ...p.text2.options,
+    ...p.countryOfOrigin.options,
+    ...p.soldPer.options
+  ]
 }
 
 function productMatchesQuery(p: Product, query: string): boolean {
@@ -104,6 +112,8 @@ function ProductsPage(): React.JSX.Element {
   const products = useProductStore((state) => state.products)
   const addProduct = useProductStore((state) => state.addProduct)
   const updateProduct = useProductStore((state) => state.updateProduct)
+  const addOption = useProductStore((state) => state.addOption)
+  const removeOption = useProductStore((state) => state.removeOption)
   const upsertBySupplierCode = useProductStore((state) => state.upsertBySupplierCode)
   const updateTextFieldsBySupplierCode = useProductStore((state) => state.updateTextFieldsBySupplierCode)
   const replaceAllFromImport = useProductStore((state) => state.replaceAllFromImport)
@@ -368,7 +378,7 @@ function ProductsPage(): React.JSX.Element {
                   field="soldPer"
                   sort={sort}
                   onSort={handleSort}
-                  title="Wordt automatisch bepaald op basis van Per gewicht/Gewicht — niet meer los in te vullen."
+                  title="Standaard automatisch bepaald op basis van Per gewicht/Gewicht (bijv. 'per stuk' of 'per 250 gram'). Typ hier iets anders (bijv. 'per zak') om dat te overschrijven — leegmaken herstelt de automatische tekst."
                 />
               </tr>
             </thead>
@@ -379,6 +389,10 @@ function ProductsPage(): React.JSX.Element {
                   product={product}
                   onOpen={() => setEditingProductId(product.id)}
                   onUpdate={(patch) => updateProduct(product.id, patch)}
+                  onSetSoldPer={(value) => addOption(product.id, 'soldPer', value)}
+                  onClearSoldPer={() => {
+                    if (product.soldPer.favorite) removeOption(product.id, 'soldPer', product.soldPer.favorite)
+                  }}
                 />
               ))}
               {visibleProducts.length === 0 && (
@@ -420,12 +434,17 @@ interface ProductRowProps {
   product: Product
   onOpen: () => void
   onUpdate: (patch: Partial<Pick<Product, 'quantity' | 'isPromotion' | 'soldByWeight' | 'pricePerKg' | 'weightGrams'>>) => void
+  /** Sets an explicit "Verkocht per" override (see mergeProductRow.ts's effectiveSoldPer). */
+  onSetSoldPer: (value: string) => void
+  /** Clears the override, falling back to the automatic per-stuk/per-X-gram text. */
+  onClearSoldPer: () => void
 }
 
-function ProductRow({ product, onOpen, onUpdate }: ProductRowProps): React.JSX.Element {
+function ProductRow({ product, onOpen, onUpdate, onSetSoldPer, onClearSoldPer }: ProductRowProps): React.JSX.Element {
   const [quantityText, setQuantityText] = useState(String(product.quantity))
   const [priceText, setPriceText] = useState(product.pricePerKg === null ? '' : String(product.pricePerKg))
   const [weightText, setWeightText] = useState(product.weightGrams === null ? '' : String(product.weightGrams))
+  const [soldPerText, setSoldPerText] = useState(effectiveSoldPer(product) ?? '')
 
   // This row stays mounted (same key=product.id) across edits made elsewhere — e.g. via the "+ Product"
   // modal right after creating it — so these draft buffers need to resync whenever the store's value
@@ -433,6 +452,10 @@ function ProductRow({ product, onOpen, onUpdate }: ProductRowProps): React.JSX.E
   useEffect(() => setQuantityText(String(product.quantity)), [product.quantity])
   useEffect(() => setPriceText(product.pricePerKg === null ? '' : String(product.pricePerKg)), [product.pricePerKg])
   useEffect(() => setWeightText(product.weightGrams === null ? '' : String(product.weightGrams)), [product.weightGrams])
+  useEffect(
+    () => setSoldPerText(effectiveSoldPer(product) ?? ''),
+    [product.soldPer.favorite, product.soldByWeight, product.weightGrams]
+  )
 
   function commitQuantity(): void {
     const parsed = Math.max(0, Math.round(Number(quantityText)))
@@ -467,6 +490,23 @@ function ProductRow({ product, onOpen, onUpdate }: ProductRowProps): React.JSX.E
       return
     }
     onUpdate({ weightGrams: Math.max(0, Math.round(parsed)) })
+  }
+
+  function commitSoldPer(): void {
+    const trimmed = soldPerText.trim()
+    const currentOverride = product.soldPer.favorite
+    if (trimmed === currentOverride) {
+      // No real change — but make sure the box reflects the actual effective value. Otherwise clearing
+      // a box that had no override to begin with (just showing the automatic text) would leave it
+      // visually blank even though the automatic text still applies.
+      setSoldPerText(effectiveSoldPer(product) ?? '')
+      return
+    }
+    if (!trimmed) {
+      if (currentOverride) onClearSoldPer()
+      return
+    }
+    onSetSoldPer(trimmed)
   }
 
   return (
@@ -525,7 +565,17 @@ function ProductRow({ product, onOpen, onUpdate }: ProductRowProps): React.JSX.E
       <td>{product.text1.favorite}</td>
       <td>{product.text2.favorite}</td>
       <td>{product.countryOfOrigin.favorite}</td>
-      <td>{deriveSoldPer(product) ?? <span className="empty-hint">—</span>}</td>
+      <td onClick={(e) => e.stopPropagation()}>
+        <input
+          type="text"
+          className="products-soldper-input"
+          placeholder={deriveSoldPer(product) ?? '—'}
+          value={soldPerText}
+          onChange={(e) => setSoldPerText(e.target.value)}
+          onBlur={commitSoldPer}
+          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+        />
+      </td>
     </tr>
   )
 }
