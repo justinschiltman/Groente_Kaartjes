@@ -205,7 +205,7 @@ function ProductsPage(): React.JSX.Element {
 
       if (rows.length === 0 && skipped > 0) {
         setImportError(
-          `Geen enkele rij herkend (${skipped} rij(en) overgeslagen). Controleer of de kolom "Bestelcode (leverancier)" bestaat en die naam heeft — dat is de enige verplichte kolom.`
+          `Geen enkele rij herkend (${skipped} rij(en) overgeslagen). Controleer of de kolom "Naam" of "Bestelcode (leverancier)" bestaat — minstens een van de twee is verplicht.`
         )
         return
       }
@@ -232,7 +232,7 @@ function ProductsPage(): React.JSX.Element {
           if (outcome === 'created') created++
           else updated++
         }
-        const skippedNote = skipped > 0 ? `, ${skipped} rij(en) overgeslagen (geen Bestelcode)` : ''
+        const skippedNote = skipped > 0 ? `, ${skipped} rij(en) overgeslagen (geen naam en geen Bestelcode)` : ''
         setImportSummary(`${created} nieuw, ${updated} bijgewerkt (${rows.length} rijen verwerkt${skippedNote}) — allemaal op 1 kaartje gezet.`)
       }
     } catch (error) {
@@ -264,7 +264,7 @@ function ProductsPage(): React.JSX.Element {
       )
       if (!confirmed) return
       const created = replaceAllFromImport(rows)
-      const skippedNote = skipped > 0 ? `, ${skipped} rij(en) overgeslagen (geen Bestelcode)` : ''
+      const skippedNote = skipped > 0 ? `, ${skipped} rij(en) overgeslagen (geen naam en geen Bestelcode)` : ''
       setImportSummary(
         `Catalogus volledig vervangen: ${created} product(en) (${rows.length} rijen verwerkt${skippedNote}) — allemaal op 1 kaartje gezet, zonder prijs en zonder Actie (die vul je zelf weer aan).`
       )

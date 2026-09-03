@@ -118,9 +118,10 @@ function parseRows(worksheet: ExcelJS.Worksheet): { rows: ProductImportRow[]; sk
         (record as Record<string, unknown>)[field] = text
       }
     })
-    // Bestelcode (leverancier) is the join key — a row without one can't be matched or created
-    // meaningfully.
-    if (record.supplierCode) rows.push(record as ProductImportRow)
+    // Bestelcode (leverancier) is the join key when present, but a row without one still gets
+    // imported as long as it has a Naam — productStore.ts's upsertBySupplierCode falls back to
+    // matching by name in that case. Only a row with NEITHER has nothing to identify it by at all.
+    if (record.supplierCode || record.name) rows.push(record as ProductImportRow)
     else skippedRowCount++
   }
 

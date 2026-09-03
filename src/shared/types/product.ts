@@ -119,10 +119,11 @@ export const PRODUCT_FIELD_LABELS: Record<
  * (see productStore.ts) — importing a sheet means "order one card for everything in it" by default.
  */
 export interface ProductImportRow {
-  /** The join key: importProductsExcel skips any row without one (see ProductImportResult's
-   * skippedRowCount) — there's nothing to match an existing product against, or to identify a new one
-   * by on the next import. */
-  supplierCode: string
+  /** The join key when present — matches an existing product, or becomes the new product's code.
+   * A row can still be imported without one (falling back to matching by name instead — see
+   * productStore.ts's upsertBySupplierCode) as long as it at least has a name; a row with NEITHER is
+   * skipped (see ProductImportResult's skippedRowCount) since there's nothing to identify it by at all. */
+  supplierCode?: string
   name?: string
   scaleCode?: string
   text1?: string
@@ -139,8 +140,8 @@ export interface ProductImportRow {
 
 /** Result of a "Producten importeren" pick — always one of exactly these outcomes, so the renderer
  * never has to guess why nothing happened (matches the canceled/error/success shape ExportPdfResult
- * already uses). skippedRowCount counts data rows that had no recognizable Bestelcode (leverancier)
- * and so couldn't be imported (that's the only required column). */
+ * already uses). skippedRowCount counts data rows with neither a recognizable Naam nor Bestelcode
+ * (leverancier) — at least one of the two is required so the row can be identified. */
 export interface ProductImportResult {
   canceled: boolean
   rows?: ProductImportRow[]
