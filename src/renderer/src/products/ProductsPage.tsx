@@ -189,6 +189,15 @@ function ProductsPage(): React.JSX.Element {
     }
   }
 
+  // A bulk import can add/rename products that a currently-active search filter has no reason to
+  // know about — since the filter is deliberately frozen against single-row edits (see visibleIds
+  // above), leaving it in place after an import would silently hide exactly the new/changed products
+  // the user just asked to bring in. Reset it so the full, current list is what shows up.
+  function clearFilterAfterImport(): void {
+    setSearch('')
+    setVisibleIds(null)
+  }
+
   async function handleImport(): Promise<void> {
     setImporting(true)
     setImportSummary(null)
@@ -235,6 +244,7 @@ function ProductsPage(): React.JSX.Element {
         const skippedNote = skipped > 0 ? `, ${skipped} rij(en) overgeslagen (geen naam en geen Bestelcode)` : ''
         setImportSummary(`${created} nieuw, ${updated} bijgewerkt (${rows.length} rijen verwerkt${skippedNote}) — allemaal op 1 kaartje gezet.`)
       }
+      clearFilterAfterImport()
     } catch (error) {
       setImportError(error instanceof Error ? error.message : 'Onbekende fout bij het importeren.')
     } finally {
@@ -268,6 +278,7 @@ function ProductsPage(): React.JSX.Element {
       setImportSummary(
         `Catalogus volledig vervangen: ${created} product(en) (${rows.length} rijen verwerkt${skippedNote}) — allemaal op 1 kaartje gezet, zonder prijs en zonder Actie (die vul je zelf weer aan).`
       )
+      clearFilterAfterImport()
     } catch (error) {
       setImportError(error instanceof Error ? error.message : 'Onbekende fout bij het vervangen.')
     } finally {
