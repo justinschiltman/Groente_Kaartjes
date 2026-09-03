@@ -115,12 +115,15 @@ interface ProductState {
   /** Bulk-import upsert: matches by supplierCode/Bestelcode (leverancier) (case/whitespace-
    * insensitive) when the row has one, creating a new product if none matches. A row with no
    * supplierCode is NOT skipped (see productImport.service.ts — a row is only skipped upstream if it
-   * has neither a supplierCode nor a name): instead it falls back to matching by name, but ONLY
-   * against other codeless products, never a product that already has a real supplierCode — that
-   * keeps a codeless catalog-building row from ever silently overwriting a properly coded product just
-   * because the names happen to match. Only ever adds+favorites the given text values, never removes
-   * existing alternates. Every row unconditionally sets quantity to 1 — importing a sheet means "order
-   * one card for everything in it" by default; price/actie/eenheid are overwritten when provided. */
+   * has neither a supplierCode nor a name): it always CREATES a new product instead, never matched
+   * against an existing one by name — real catalogs routinely have several genuinely different
+   * products sharing one generic name (e.g. several distinct varieties all just named "Aardappel"),
+   * and matching by name silently collapsed those into one, discarding the rest. The tradeoff is a
+   * codeless row re-imported later creates another product rather than updating the same one — a
+   * visible, easily cleaned-up duplicate rather than a silent loss. Only ever adds+favorites the given
+   * text values, never removes existing alternates. Every row unconditionally sets quantity to 1 —
+   * importing a sheet means "order one card for everything in it" by default; price/actie/eenheid are
+   * overwritten when provided. */
   upsertBySupplierCode: (data: ProductImportRow) => 'created' | 'updated'
 
   /** Narrow-scope import for correcting Naam/Top tekst/Tekst onder across an existing catalog without
@@ -142,11 +145,11 @@ interface ProductState {
 
   /** Wipes the ENTIRE catalog first (every product, including price/actie/per-gewicht/quantity — not
    * just the ones in the given rows) and rebuilds it from scratch via upsertBySupplierCode, so this is
-   * explicitly a full replace, not an incremental import. Returns the number of products created (a row
-   * whose supplierCode — or, for a codeless row, whose name — duplicates an earlier row in the same
-   * batch updates that one instead of creating a second product, so this can be fewer than
-   * rows.length). The caller is responsible for confirming with the user before calling this — it's
-   * irreversible from here. */
+   * explicitly a full replace, not an incremental import. Returns the number of products created (a
+   * row whose supplierCode duplicates an earlier row in the same batch updates that one instead of
+   * creating a second product; a codeless row never does — see upsertBySupplierCode — so this can be
+   * fewer than rows.length only when coded rows repeat). The caller is responsible for confirming with
+   * the user before calling this — it's irreversible from here. */
   replaceAllFromImport: (rows: ProductImportRow[]) => number
 
   /** After a successful "Verwerken": clears quantity (so last week's batch is never reprinted by
@@ -238,12 +241,14 @@ export const useProductStore = create<ProductState>((set, get) => {
 
     upsertBySupplierCode: (data) => {
       const trimmedCode = data.supplierCode?.trim() ?? ''
-      const trimmedName = data.name?.trim() ?? ''
-      const existing = trimmedCode
-        ? get().products.find((p) => normalize(p.supplierCode) === normalize(trimmedCode))
-        : trimmedName
-          ? get().products.find((p) => !p.supplierCode && normalize(p.name) === normalize(trimmedName))
-          : undefined
+      // A codeless row is NEVER matched against an existing product, even by name — real catalogs
+      // routinely have several genuinely different products sharing one generic name (e.g. several
+      // rows all named "Aardappel", each a different variety only distinguished by its own text/land
+      // fields), and matching by name silently collapsed those into one, discarding the rest. Every
+      // codeless row always creates its own product; the tradeoff is that re-importing the same
+      // codeless row again later creates another one rather than updating it — a visible, easily
+      // cleaned-up duplicate, which is a far smaller problem than silently losing distinct products.
+      const existing = trimmedCode ? get().products.find((p) => normalize(p.supplierCode) === normalize(trimmedCode)) : undefined
       const now = new Date().toISOString()
 
       if (existing) {

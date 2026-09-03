@@ -119,10 +119,12 @@ export const PRODUCT_FIELD_LABELS: Record<
  * (see productStore.ts) — importing a sheet means "order one card for everything in it" by default.
  */
 export interface ProductImportRow {
-  /** The join key when present — matches an existing product, or becomes the new product's code.
-   * A row can still be imported without one (falling back to matching by name instead — see
-   * productStore.ts's upsertBySupplierCode) as long as it at least has a name; a row with NEITHER is
-   * skipped (see ProductImportResult's skippedRowCount) since there's nothing to identify it by at all. */
+  /** The join key when present — matches an existing product, or becomes the new product's code. A
+   * row can still be imported without one as long as it at least has a name, but it always creates a
+   * new product rather than matching an existing one by name (see productStore.ts's
+   * upsertBySupplierCode — several genuinely different products can share one generic name, e.g.
+   * several distinct varieties all just named "Aardappel"). A row with NEITHER is skipped (see
+   * ProductImportResult's skippedRowCount) since there's nothing to identify it by at all. */
   supplierCode?: string
   name?: string
   scaleCode?: string
