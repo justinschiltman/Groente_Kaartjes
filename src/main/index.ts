@@ -6,6 +6,13 @@ import { registerProductsIpc } from './ipc/products.ipc'
 
 const isDev = !app.isPackaged
 
+// Works around a known Electron/Chromium GPU-compositor quirk on Windows where clicks stop
+// registering on parts of the page until the window loses and regains focus (e.g. opening and
+// closing a native dialog "unsticks" it) — disabling GPU compositing avoids the state that triggers
+// it. Must be called before app is ready. The app is form/canvas-heavy, not animation-heavy, so the
+// software-rendering cost is not expected to be noticeable.
+app.disableHardwareAcceleration()
+
 function createMainWindow(): void {
   const mainWindow = new BrowserWindow({
     width: 1360,
