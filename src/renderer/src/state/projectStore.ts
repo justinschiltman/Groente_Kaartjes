@@ -6,7 +6,9 @@ import { createDefaultTemplate } from '@shared/types/template'
 const UNDO_LIMIT = 50
 
 // Temporary until Phase 6 replaces this with real file-backed project persistence via the main process.
-const STORAGE_KEY = 'groente-kaartjes:template'
+// Exported so the full-backup export/import feature (see App.tsx) can read/write this store's raw
+// persisted value without duplicating the key string.
+export const STORAGE_KEY = 'groente-kaartjes:template'
 
 interface PersistedProject {
   templates: Template[]

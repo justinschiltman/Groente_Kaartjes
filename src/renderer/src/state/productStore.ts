@@ -2,7 +2,9 @@ import { create } from 'zustand'
 import type { MultiValueField, MultiValueFieldKey, Product, ProductImportRow } from '@shared/types/product'
 import { createDefaultProduct, createMultiValueField } from '@shared/types/product'
 
-const STORAGE_KEY = 'groente-kaartjes:products'
+/** Exported so the full-backup export/import feature (see App.tsx) can read/write this store's raw
+ * persisted value without duplicating the key string. */
+export const STORAGE_KEY = 'groente-kaartjes:products'
 
 /** The soldByWeight/weightGrams most recently set on ANY product (via the table, the edit modal, or
  * this same mechanism carrying forward) — used to pre-fill a freshly-added product, since most new

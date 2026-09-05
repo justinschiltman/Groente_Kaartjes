@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { FontVariantWithData, ImageAssetWithData } from '@shared/types/asset'
+import type { BackupExportResult, BackupImportResult, BackupPayload } from '@shared/types/backup'
 import type { ExportPdfRequest, ExportPdfResult } from '@shared/types/export'
 import type { ProductExportResult, ProductExportRow, ProductImportResult } from '@shared/types/product'
 
@@ -11,7 +12,9 @@ const api = {
   importImage: (): Promise<ImageAssetWithData | null> => ipcRenderer.invoke('assets:importImage'),
   exportPdf: (request: ExportPdfRequest): Promise<ExportPdfResult> => ipcRenderer.invoke('export:pdf', request),
   importProducts: (): Promise<ProductImportResult> => ipcRenderer.invoke('products:importExcel'),
-  exportProducts: (rows: ProductExportRow[]): Promise<ProductExportResult> => ipcRenderer.invoke('products:exportExcel', rows)
+  exportProducts: (rows: ProductExportRow[]): Promise<ProductExportResult> => ipcRenderer.invoke('products:exportExcel', rows),
+  exportBackup: (payload: BackupPayload): Promise<BackupExportResult> => ipcRenderer.invoke('backup:export', payload),
+  importBackup: (): Promise<BackupImportResult> => ipcRenderer.invoke('backup:import')
 }
 
 contextBridge.exposeInMainWorld('api', api)

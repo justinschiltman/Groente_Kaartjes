@@ -1,6 +1,7 @@
 import { join } from 'node:path'
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { registerAssetsIpc } from './ipc/assets.ipc'
+import { registerBackupIpc } from './ipc/backup.ipc'
 import { registerExportIpc } from './ipc/export.ipc'
 import { registerProductsIpc } from './ipc/products.ipc'
 
@@ -48,6 +49,7 @@ function createMainWindow(): void {
 app.whenReady().then(() => {
   ipcMain.handle('app:getVersion', () => app.getVersion())
   registerAssetsIpc()
+  registerBackupIpc()
   registerExportIpc()
   registerProductsIpc()
 

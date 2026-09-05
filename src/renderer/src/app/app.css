@@ -77,6 +77,56 @@ button {
   font-weight: 600;
 }
 
+.app-backup-actions {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.app-backup-actions button {
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  padding: 0.35rem 0.7rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.app-backup-actions button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.app-backup-actions button:disabled {
+  opacity: 0.6;
+}
+
+.app-backup-message {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  color: #3a7d44;
+  background: #eef5ee;
+  border-bottom: 1px solid #dde3dd;
+}
+
+.app-backup-message.error {
+  color: #8a2c1c;
+  background: #fdecea;
+  border-bottom-color: #f3c6bd;
+}
+
+.app-backup-message-dismiss {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0.1rem 0.3rem;
+}
+
 .editor-page {
   display: flex;
   flex-direction: column;
