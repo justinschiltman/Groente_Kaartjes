@@ -30,6 +30,18 @@ function rowSummary(row: ProductImportRow): string {
   return parts.join(' · ')
 }
 
+/** Enough context about an EXISTING product to tell it apart from similarly-named ones when deciding
+ * whether an unmatched import row is actually the same item — shown per candidate in the link-search
+ * results below. Bestelcode lists every saved option (not just the favorite), since seeing a code
+ * already sitting there un-favorited is itself useful disambiguating information. */
+function productSummary(p: Product): string {
+  const parts: string[] = []
+  if (p.supplierCode.options.length > 0) parts.push(`Bestelcode ${p.supplierCode.options.join(', ')}`)
+  parts.push(p.soldByWeight ? 'Per gewicht' : 'Per stuk')
+  if (p.text2.favorite) parts.push(p.text2.favorite)
+  return parts.join(' · ')
+}
+
 /** Shown after an "Excel importeren" whose rows didn't all match an existing product on Bestelcode —
  * see productStore.ts's previewImport. Rather than silently creating a new product for every
  * non-match (which, once a catalog is largely built up, is more often a near-duplicate — a typo'd
@@ -142,8 +154,8 @@ function ImportReviewModal({ rows, products, onCreate, onLink, onDone }: ImportR
                                   resolve(key, 'linked')
                                 }}
                               >
-                                {p.name || '(naamloos)'}
-                                {p.supplierCode.favorite && <span className="empty-hint"> — {p.supplierCode.favorite}</span>}
+                                <strong>{p.name || '(naamloos)'}</strong>
+                                <span className="empty-hint">{productSummary(p)}</span>
                               </button>
                             </li>
                           ))

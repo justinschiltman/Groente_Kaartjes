@@ -1187,6 +1187,9 @@ button {
   border-radius: 4px;
   background: white;
   padding: 0.35rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
 }
 
 .import-review-link-results button:hover {
