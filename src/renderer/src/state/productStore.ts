@@ -152,13 +152,14 @@ interface ProductState {
    * can carry more than one legitimately valid code (see Product.supplierCode), so a row supplying
    * just an older-but-still-valid one must still find it instead of spawning a duplicate.
    *
-   * On a MATCH, this deliberately only touches pricePerKg and countryOfOrigin (plus supplierCode
-   * itself, to add the given code as a saved option, and quantity, always set to 1 — see below): Naam,
-   * Weegschaalcode, Top tekst, Tekst onder, Verkocht per, Actie and Per gewicht/Gewicht are left
-   * exactly as they were, no matter what a row provides for them. A weekly order sheet's job is to say
-   * "this needs cards, here's this week's price and land of origin" — the rest of a product's identity
-   * and display text is maintained directly in the app, and having an import silently rewrite it (e.g.
-   * a casually-typed Naam column overwriting a carefully chosen display name) was a real reported bug.
+   * On a MATCH, this deliberately only touches pricePerKg, countryOfOrigin and isPromotion (plus
+   * supplierCode itself, to add the given code as a saved option, and quantity, always set to 1 — see
+   * below): Naam, Weegschaalcode, Top tekst, Tekst onder, Verkocht per and Per gewicht/Gewicht are left
+   * exactly as they were, no matter what a row provides for them. A weekly order/delivery sheet's job
+   * is to say "this needs cards, here's this week's price/land/whether it's on offer" — the rest of a
+   * product's identity and display text is maintained directly in the app, and having an import
+   * silently rewrite it (e.g. a casually-typed Naam column overwriting a carefully chosen display
+   * name) was a real reported bug.
    *
    * Creates a new product if no match exists — a fresh product has no prior data to protect, so every
    * provided field is used to populate it, same as before. A row with no supplierCode is NOT skipped
@@ -298,7 +299,7 @@ export const useProductStore = create<ProductState>((set, get) => {
       const now = new Date().toISOString()
 
       if (existing) {
-        // Deliberately narrow: only the two fields a weekly order sheet is actually meant to refresh
+        // Deliberately narrow: only the three fields a weekly order sheet is actually meant to refresh
         // (see the doc comment above) plus the join-key bookkeeping (supplierCode, quantity). Every
         // other field is left out of this object entirely — the `...p` spread keeps it untouched,
         // regardless of what the imported row happened to contain for it.
@@ -307,6 +308,7 @@ export const useProductStore = create<ProductState>((set, get) => {
           supplierCode: data.supplierCode ? withFavoritedMulti(p.supplierCode, data.supplierCode) : p.supplierCode,
           countryOfOrigin: data.countryOfOrigin ? withFavoritedMulti(p.countryOfOrigin, data.countryOfOrigin) : p.countryOfOrigin,
           quantity: 1,
+          isPromotion: data.isPromotion ?? p.isPromotion,
           pricePerKg: data.pricePerKg ?? p.pricePerKg,
           updatedAt: now
         }))
