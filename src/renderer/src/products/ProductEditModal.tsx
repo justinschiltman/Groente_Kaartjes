@@ -14,6 +14,7 @@ interface ProductEditModalProps {
 // (see mergeProductRow.ts's effectiveSoldPer) — for phrasings deriveSoldPer can't produce, like
 // "per zak" or "per bos". Leaving it empty just falls back to the automatic text below.
 const MULTI_FIELD_CONFIG: { key: MultiValueFieldKey; label: string; allowLineBreaks?: boolean }[] = [
+  { key: 'supplierCode', label: 'Bestelcode (leverancier)' },
   { key: 'text1', label: 'Top tekst' },
   { key: 'text2', label: 'Tekst onder', allowLineBreaks: true },
   { key: 'countryOfOrigin', label: 'Land van herkomst' },
@@ -31,7 +32,6 @@ function ProductEditModal({ productId, onClose }: ProductEditModalProps): React.
 
   const [name, setName] = useState(product?.name ?? '')
   const [scaleCode, setScaleCode] = useState(product?.scaleCode ?? '')
-  const [supplierCode, setSupplierCode] = useState(product?.supplierCode ?? '')
   const [quantityText, setQuantityText] = useState(String(product?.quantity ?? 0))
   const [priceText, setPriceText] = useState(product?.pricePerKg === null || product?.pricePerKg === undefined ? '' : String(product.pricePerKg))
   const [weightText, setWeightText] = useState(
@@ -48,11 +48,6 @@ function ProductEditModal({ productId, onClose }: ProductEditModalProps): React.
   function commitScaleCode(): void {
     const trimmed = scaleCode.trim()
     if (trimmed !== product?.scaleCode) updateProduct(productId, { scaleCode: trimmed })
-  }
-
-  function commitSupplierCode(): void {
-    const trimmed = supplierCode.trim()
-    if (trimmed !== product?.supplierCode) updateProduct(productId, { supplierCode: trimmed })
   }
 
   function commitQuantity(): void {
@@ -124,16 +119,6 @@ function ProductEditModal({ productId, onClose }: ProductEditModalProps): React.
                 value={scaleCode}
                 onChange={(e) => setScaleCode(e.target.value)}
                 onBlur={commitScaleCode}
-                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-              />
-            </label>
-            <label className="field">
-              <span>Bestelcode (leverancier)</span>
-              <input
-                type="text"
-                value={supplierCode}
-                onChange={(e) => setSupplierCode(e.target.value)}
-                onBlur={commitSupplierCode}
                 onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
               />
             </label>

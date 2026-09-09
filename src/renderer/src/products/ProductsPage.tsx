@@ -43,7 +43,7 @@ function sortValue(product: Product, field: SortField): string | number | boolea
     case 'scaleCode':
       return product.scaleCode || null
     case 'supplierCode':
-      return product.supplierCode || null
+      return product.supplierCode.favorite || null
     case 'text1':
       return product.text1.favorite || null
     case 'text2':
@@ -81,7 +81,7 @@ function searchableValues(p: Product): string[] {
   return [
     p.name,
     p.scaleCode,
-    p.supplierCode,
+    ...p.supplierCode.options,
     ...p.text1.options,
     ...p.text2.options,
     ...p.countryOfOrigin.options,
@@ -97,7 +97,7 @@ function toExportRow(p: Product): ProductExportRow {
   return {
     name: p.name,
     scaleCode: p.scaleCode,
-    supplierCode: p.supplierCode,
+    supplierCode: multiValueToExportText(p.supplierCode),
     countryOfOrigin: multiValueToExportText(p.countryOfOrigin),
     text1: multiValueToExportText(p.text1),
     text2: multiValueToExportText(p.text2),
@@ -572,7 +572,7 @@ function ProductRow({ product, onOpen, onUpdate, onSetSoldPer, onClearSoldPer }:
         />
       </td>
       <td>{product.scaleCode}</td>
-      <td>{product.supplierCode}</td>
+      <td>{product.supplierCode.favorite}</td>
       <td>{product.text1.favorite}</td>
       <td>{product.text2.favorite}</td>
       <td>{product.countryOfOrigin.favorite}</td>

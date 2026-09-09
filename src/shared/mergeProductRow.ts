@@ -56,7 +56,7 @@ export function productToRow(product: Product): DataRow {
   const row: DataRow = {
     [PRODUCT_FIELD_LABELS.name]: product.name || null,
     [PRODUCT_FIELD_LABELS.scaleCode]: product.scaleCode || null,
-    [PRODUCT_FIELD_LABELS.supplierCode]: product.supplierCode || null,
+    [PRODUCT_FIELD_LABELS.supplierCode]: product.supplierCode.favorite || null,
     [PRODUCT_FIELD_LABELS.text1]: product.text1.favorite || null,
     [PRODUCT_FIELD_LABELS.text2]: product.text2.favorite || null,
     [LEGACY_TEXT_LABELS.text1]: product.text1.favorite || null,

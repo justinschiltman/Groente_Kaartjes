@@ -33,7 +33,11 @@ function loadPersisted(): PersistedProducts {
         // trust `number | null` and never has to special-case `undefined`. Same story for
         // lastUsedDefaults itself, added later still.
         return {
-          products: parsed.products.map((p: Product) => ({ ...p, weightGrams: p.weightGrams ?? null })),
+          products: parsed.products.map((p: Product) => ({
+            ...p,
+            weightGrams: p.weightGrams ?? null,
+            supplierCode: migrateSupplierCode(p.supplierCode)
+          })),
           lastUsedDefaults: parsed.lastUsedDefaults ?? DEFAULT_LAST_USED
         }
       }
@@ -67,16 +71,24 @@ function withFavorited(field: MultiValueField, value: string): MultiValueField {
   return { options, favorite: existing ?? trimmed }
 }
 
+/** Splits one imported cell's raw text into its individual ";"-separated codes/values (e.g. "34; 221"
+ * -> ["34", "221"]) — the same convention withFavoritedMulti uses to seed several saved options from
+ * one cell, exposed separately so matching logic (see multiFieldMatchesAny) can check each candidate
+ * without also mutating a field. */
+function splitMultiParts(rawText: string): string[] {
+  return rawText
+    .split(';')
+    .map((part) => part.trim())
+    .filter(Boolean)
+}
+
 /** Same as withFavorited, but lets one imported cell seed several saved options at once by splitting
  * on ";" (e.g. "Zoet en sappig; Nu in de aanbieding") — every part is added (in the order given, after
  * any options already on the field), and the FIRST part becomes the favorite. A cell with no ";"
  * splits into a single part, so this is a strict superset of withFavorited: existing single-value
  * imports behave identically to before. */
 function withFavoritedMulti(field: MultiValueField, rawText: string): MultiValueField {
-  const parts = rawText
-    .split(';')
-    .map((part) => part.trim())
-    .filter(Boolean)
+  const parts = splitMultiParts(rawText)
   if (parts.length === 0) return field
   let options = field.options
   for (const part of parts) {
@@ -90,6 +102,27 @@ function multiFieldFromImport(rawText: string | undefined): MultiValueField {
   return rawText ? withFavoritedMulti(createMultiValueField(), rawText) : createMultiValueField()
 }
 
+/** True when `field` has at least one saved option in common with the (possibly ";"-separated) codes
+ * in rawText — lets an import row match a product by ANY previously saved code, not just whichever one
+ * happens to be the current favorite (see upsertBySupplierCode/updateTextFieldsBySupplierCode). A
+ * product can legitimately carry more than one valid code over time (Product.supplierCode), so a
+ * plain favorite-only comparison would miss a row supplying an older-but-still-valid one. */
+function multiFieldMatchesAny(field: MultiValueField, rawText: string): boolean {
+  const candidates = splitMultiParts(rawText).map(normalize)
+  return field.options.some((o) => candidates.includes(normalize(o)))
+}
+
+/** Existing persisted products may still have supplierCode saved as a plain string, from before it
+ * became a MultiValueField — including a compound value like "34; 221" the user typed manually to
+ * track more than one valid code by hand. Splits any such string the same way an imported cell would
+ * be, so pre-existing data gets the same multi-code matching benefit going forward instead of being
+ * stuck as one unsplit, unmatchable string. */
+function migrateSupplierCode(raw: unknown): MultiValueField {
+  if (raw && typeof raw === 'object' && Array.isArray((raw as MultiValueField).options)) return raw as MultiValueField
+  if (typeof raw === 'string' && raw.trim()) return withFavoritedMulti(createMultiValueField(), raw)
+  return createMultiValueField()
+}
+
 interface ProductState {
   products: Product[]
   lastUsedDefaults: LastUsedDefaults
@@ -98,7 +131,7 @@ interface ProductState {
   updateProduct: (
     id: string,
     patch: Partial<
-      Pick<Product, 'name' | 'scaleCode' | 'supplierCode' | 'quantity' | 'isPromotion' | 'soldByWeight' | 'pricePerKg' | 'weightGrams'>
+      Pick<Product, 'name' | 'scaleCode' | 'quantity' | 'isPromotion' | 'soldByWeight' | 'pricePerKg' | 'weightGrams'>
     >
   ) => void
   deleteProduct: (id: string) => void
@@ -115,17 +148,20 @@ interface ProductState {
   renameOption: (id: string, field: MultiValueFieldKey, oldValue: string, newValue: string) => void
 
   /** Bulk-import upsert: matches by supplierCode/Bestelcode (leverancier) (case/whitespace-
-   * insensitive) when the row has one, creating a new product if none matches. A row with no
-   * supplierCode is NOT skipped (see productImport.service.ts — a row is only skipped upstream if it
-   * has neither a supplierCode nor a name): it always CREATES a new product instead, never matched
-   * against an existing one by name — real catalogs routinely have several genuinely different
-   * products sharing one generic name (e.g. several distinct varieties all just named "Aardappel"),
-   * and matching by name silently collapsed those into one, discarding the rest. The tradeoff is a
-   * codeless row re-imported later creates another product rather than updating the same one — a
-   * visible, easily cleaned-up duplicate rather than a silent loss. Only ever adds+favorites the given
-   * text values, never removes existing alternates. Every row unconditionally sets quantity to 1 —
-   * importing a sheet means "order one card for everything in it" by default; price/actie/eenheid are
-   * overwritten when provided. */
+   * insensitive) against ANY of a product's saved codes, not just its current favorite — a product
+   * can carry more than one legitimately valid code (see Product.supplierCode), so a row supplying
+   * just an older-but-still-valid one must still find it instead of spawning a duplicate. Creates a
+   * new product if none matches. A row with no supplierCode is NOT skipped (see
+   * productImport.service.ts — a row is only skipped upstream if it has neither a supplierCode nor a
+   * name): it always CREATES a new product instead, never matched against an existing one by name —
+   * real catalogs routinely have several genuinely different products sharing one generic name (e.g.
+   * several distinct varieties all just named "Aardappel"), and matching by name silently collapsed
+   * those into one, discarding the rest. The tradeoff is a codeless row re-imported later creates
+   * another product rather than updating the same one — a visible, easily cleaned-up duplicate rather
+   * than a silent loss. Only ever adds+favorites the given text values, never removes existing
+   * alternates (including previously saved supplierCode options). Every row unconditionally sets
+   * quantity to 1 — importing a sheet means "order one card for everything in it" by default;
+   * price/actie/eenheid are overwritten when provided. */
   upsertBySupplierCode: (data: ProductImportRow) => 'created' | 'updated'
 
   /** Narrow-scope import for correcting Naam/Top tekst/Tekst onder across an existing catalog without
@@ -135,9 +171,9 @@ interface ProductState {
    * boolean column as an explicit "Nee", which would silently reset promotions/eenheid across the whole
    * catalog. This only ever touches name/text1/text2 (fully REPLACED — not merged like
    * upsertBySupplierCode — since the point here is correcting wrong text, not accumulating alternates)
-   * on a product that already exists, matched by supplierCode; no match (including a row with no
-   * supplierCode at all, which this narrow mode never falls back to name for) is reported 'not-found'
-   * rather than creating a new, mostly-empty product. */
+   * on a product that already exists, matched by supplierCode (any saved code, not just the
+   * favorite); no match (including a row with no supplierCode at all, which this narrow mode never
+   * falls back to name for) is reported 'not-found' rather than creating a new, mostly-empty product. */
   updateTextFieldsBySupplierCode: (data: {
     supplierCode?: string
     name?: string
@@ -250,7 +286,7 @@ export const useProductStore = create<ProductState>((set, get) => {
       // codeless row always creates its own product; the tradeoff is that re-importing the same
       // codeless row again later creates another one rather than updating it — a visible, easily
       // cleaned-up duplicate, which is a far smaller problem than silently losing distinct products.
-      const existing = trimmedCode ? get().products.find((p) => normalize(p.supplierCode) === normalize(trimmedCode)) : undefined
+      const existing = trimmedCode ? get().products.find((p) => multiFieldMatchesAny(p.supplierCode, trimmedCode)) : undefined
       const now = new Date().toISOString()
 
       if (existing) {
@@ -258,7 +294,7 @@ export const useProductStore = create<ProductState>((set, get) => {
           ...p,
           name: data.name?.trim() || p.name,
           scaleCode: data.scaleCode?.trim() || p.scaleCode,
-          supplierCode: data.supplierCode?.trim() || p.supplierCode,
+          supplierCode: data.supplierCode ? withFavoritedMulti(p.supplierCode, data.supplierCode) : p.supplierCode,
           text1: data.text1 ? withFavoritedMulti(p.text1, data.text1) : p.text1,
           text2: data.text2 ? withFavoritedMulti(p.text2, data.text2) : p.text2,
           countryOfOrigin: data.countryOfOrigin ? withFavoritedMulti(p.countryOfOrigin, data.countryOfOrigin) : p.countryOfOrigin,
@@ -277,7 +313,7 @@ export const useProductStore = create<ProductState>((set, get) => {
         id: crypto.randomUUID(),
         name: data.name?.trim() ?? '',
         scaleCode: data.scaleCode?.trim() ?? '',
-        supplierCode: trimmedCode,
+        supplierCode: multiFieldFromImport(data.supplierCode),
         text1: multiFieldFromImport(data.text1),
         text2: multiFieldFromImport(data.text2),
         countryOfOrigin: multiFieldFromImport(data.countryOfOrigin),
@@ -299,7 +335,7 @@ export const useProductStore = create<ProductState>((set, get) => {
       const trimmedCode = data.supplierCode?.trim() ?? ''
       // This narrow mode only ever matches by code — a row with none has nothing to scope-correct.
       if (!trimmedCode) return 'not-found'
-      const existing = get().products.find((p) => normalize(p.supplierCode) === normalize(trimmedCode))
+      const existing = get().products.find((p) => multiFieldMatchesAny(p.supplierCode, trimmedCode))
       if (!existing) return 'not-found'
       updateOne(existing.id, (p) => ({
         ...p,

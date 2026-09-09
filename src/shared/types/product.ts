@@ -27,10 +27,12 @@ export interface Product {
    * product, so it's a plain field rather than a MultiValueField. */
   scaleCode: string
   /** The supplier's own product/order code — this catalog's join key: importProductsExcel matches an
-   * Excel row to an existing product by this value (see productStore.ts's upsertBySupplierCode), the
-   * same role the catalog's own "Bestelnummer" used to play before it was retired as unused. Plain
-   * field for the same reason as scaleCode. */
-  supplierCode: string
+   * Excel row to an existing product by any one of its saved codes (see productStore.ts's
+   * upsertBySupplierCode), the same role the catalog's own "Bestelnummer" used to play before it was
+   * retired as unused. A MultiValueField (not a plain string) because a single real-world product
+   * sometimes legitimately has more than one valid supplier code over time — matching only the
+   * favorite would silently fail for a row carrying an older-but-still-valid one. */
+  supplierCode: MultiValueField
   text1: MultiValueField
   text2: MultiValueField
   countryOfOrigin: MultiValueField
@@ -71,7 +73,7 @@ export function createDefaultProduct(): Product {
     id: crypto.randomUUID(),
     name: '',
     scaleCode: '',
-    supplierCode: '',
+    supplierCode: createMultiValueField(),
     text1: createMultiValueField(),
     text2: createMultiValueField(),
     countryOfOrigin: createMultiValueField(),
@@ -86,9 +88,9 @@ export function createDefaultProduct(): Product {
   }
 }
 
-/** Field keys that hold several saved options with a favorite, as opposed to name/supplierCode which
+/** Field keys that hold several saved options with a favorite, as opposed to name/scaleCode which
  * are always a single plain value. */
-export const MULTI_VALUE_FIELDS = ['text1', 'text2', 'countryOfOrigin', 'soldPer'] as const
+export const MULTI_VALUE_FIELDS = ['supplierCode', 'text1', 'text2', 'countryOfOrigin', 'soldPer'] as const
 export type MultiValueFieldKey = (typeof MULTI_VALUE_FIELDS)[number]
 
 /** Dutch labels used both as UI copy and as the binding-key/trigger-condition field names exposed to
@@ -96,10 +98,7 @@ export type MultiValueFieldKey = (typeof MULTI_VALUE_FIELDS)[number]
  * triggerConditions field stored on existing card elements/templates.
  * text1/text2 were labeled "Tekst 1"/"Tekst 2" before — mergeProductRow.ts still emits the merged
  * row under those old labels too, so existing designs bound to them keep resolving unchanged. */
-export const PRODUCT_FIELD_LABELS: Record<
-  'name' | 'scaleCode' | 'supplierCode' | 'isPromotion' | 'soldByWeight' | MultiValueFieldKey,
-  string
-> = {
+export const PRODUCT_FIELD_LABELS: Record<'name' | 'scaleCode' | 'isPromotion' | 'soldByWeight' | MultiValueFieldKey, string> = {
   name: 'Naam',
   scaleCode: 'Weegschaalcode',
   supplierCode: 'Bestelcode (leverancier)',
@@ -119,12 +118,13 @@ export const PRODUCT_FIELD_LABELS: Record<
  * (see productStore.ts) — importing a sheet means "order one card for everything in it" by default.
  */
 export interface ProductImportRow {
-  /** The join key when present — matches an existing product, or becomes the new product's code. A
-   * row can still be imported without one as long as it at least has a name, but it always creates a
-   * new product rather than matching an existing one by name (see productStore.ts's
-   * upsertBySupplierCode — several genuinely different products can share one generic name, e.g.
-   * several distinct varieties all just named "Aardappel"). A row with NEITHER is skipped (see
-   * ProductImportResult's skippedRowCount) since there's nothing to identify it by at all. */
+  /** The join key when present — matched against ANY of a product's saved codes, not just its
+   * favorite (a cell can itself carry more than one code, ";"-separated, same as any other
+   * MultiValueField import — see productStore.ts's upsertBySupplierCode). A row can still be imported
+   * without one as long as it at least has a name, but it always creates a new product rather than
+   * matching an existing one by name (several genuinely different products can share one generic
+   * name, e.g. several distinct varieties all just named "Aardappel"). A row with NEITHER is skipped
+   * (see ProductImportResult's skippedRowCount) since there's nothing to identify it by at all. */
   supplierCode?: string
   name?: string
   scaleCode?: string
