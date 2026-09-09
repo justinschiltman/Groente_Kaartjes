@@ -150,18 +150,26 @@ interface ProductState {
   /** Bulk-import upsert: matches by supplierCode/Bestelcode (leverancier) (case/whitespace-
    * insensitive) against ANY of a product's saved codes, not just its current favorite — a product
    * can carry more than one legitimately valid code (see Product.supplierCode), so a row supplying
-   * just an older-but-still-valid one must still find it instead of spawning a duplicate. Creates a
-   * new product if none matches. A row with no supplierCode is NOT skipped (see
-   * productImport.service.ts — a row is only skipped upstream if it has neither a supplierCode nor a
-   * name): it always CREATES a new product instead, never matched against an existing one by name —
-   * real catalogs routinely have several genuinely different products sharing one generic name (e.g.
-   * several distinct varieties all just named "Aardappel"), and matching by name silently collapsed
-   * those into one, discarding the rest. The tradeoff is a codeless row re-imported later creates
-   * another product rather than updating the same one — a visible, easily cleaned-up duplicate rather
-   * than a silent loss. Only ever adds+favorites the given text values, never removes existing
-   * alternates (including previously saved supplierCode options). Every row unconditionally sets
-   * quantity to 1 — importing a sheet means "order one card for everything in it" by default;
-   * price/actie/eenheid are overwritten when provided. */
+   * just an older-but-still-valid one must still find it instead of spawning a duplicate.
+   *
+   * On a MATCH, this deliberately only touches pricePerKg and countryOfOrigin (plus supplierCode
+   * itself, to add the given code as a saved option, and quantity, always set to 1 — see below): Naam,
+   * Weegschaalcode, Top tekst, Tekst onder, Verkocht per, Actie and Per gewicht/Gewicht are left
+   * exactly as they were, no matter what a row provides for them. A weekly order sheet's job is to say
+   * "this needs cards, here's this week's price and land of origin" — the rest of a product's identity
+   * and display text is maintained directly in the app, and having an import silently rewrite it (e.g.
+   * a casually-typed Naam column overwriting a carefully chosen display name) was a real reported bug.
+   *
+   * Creates a new product if no match exists — a fresh product has no prior data to protect, so every
+   * provided field is used to populate it, same as before. A row with no supplierCode is NOT skipped
+   * (see productImport.service.ts — a row is only skipped upstream if it has neither a supplierCode
+   * nor a name): it always CREATES a new product instead, never matched against an existing one by
+   * name — real catalogs routinely have several genuinely different products sharing one generic name
+   * (e.g. several distinct varieties all just named "Aardappel"), and matching by name silently
+   * collapsed those into one, discarding the rest. The tradeoff is a codeless row re-imported later
+   * creates another product rather than updating the same one — a visible, easily cleaned-up duplicate
+   * rather than a silent loss. Every row unconditionally sets quantity to 1 — importing a sheet means
+   * "order one card for everything in it" by default. */
   upsertBySupplierCode: (data: ProductImportRow) => 'created' | 'updated'
 
   /** Narrow-scope import for correcting Naam/Top tekst/Tekst onder across an existing catalog without
@@ -290,20 +298,16 @@ export const useProductStore = create<ProductState>((set, get) => {
       const now = new Date().toISOString()
 
       if (existing) {
+        // Deliberately narrow: only the two fields a weekly order sheet is actually meant to refresh
+        // (see the doc comment above) plus the join-key bookkeeping (supplierCode, quantity). Every
+        // other field is left out of this object entirely — the `...p` spread keeps it untouched,
+        // regardless of what the imported row happened to contain for it.
         updateOne(existing.id, (p) => ({
           ...p,
-          name: data.name?.trim() || p.name,
-          scaleCode: data.scaleCode?.trim() || p.scaleCode,
           supplierCode: data.supplierCode ? withFavoritedMulti(p.supplierCode, data.supplierCode) : p.supplierCode,
-          text1: data.text1 ? withFavoritedMulti(p.text1, data.text1) : p.text1,
-          text2: data.text2 ? withFavoritedMulti(p.text2, data.text2) : p.text2,
           countryOfOrigin: data.countryOfOrigin ? withFavoritedMulti(p.countryOfOrigin, data.countryOfOrigin) : p.countryOfOrigin,
-          soldPer: data.soldPer ? withFavoritedMulti(p.soldPer, data.soldPer) : p.soldPer,
           quantity: 1,
-          isPromotion: data.isPromotion ?? p.isPromotion,
-          soldByWeight: data.soldByWeight ?? p.soldByWeight,
           pricePerKg: data.pricePerKg ?? p.pricePerKg,
-          weightGrams: data.weightGrams ?? p.weightGrams,
           updatedAt: now
         }))
         return 'updated'
