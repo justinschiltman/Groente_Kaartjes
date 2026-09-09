@@ -1116,6 +1116,84 @@ button {
   margin-top: 0.5rem;
 }
 
+/* ---- Import review modal ---- */
+
+.import-review-modal {
+  width: min(640px, 92vw);
+}
+
+.import-review-bulk-actions {
+  margin-bottom: 0.75rem;
+}
+
+.import-review-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.import-review-item {
+  border: 1px solid #dde3dd;
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+  background: #fafbfa;
+}
+
+.import-review-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-bottom: 0.5rem;
+}
+
+.import-review-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.import-review-link-search-row {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.import-review-link-search-row input {
+  flex: 1 1 auto;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #c9d3c9;
+  border-radius: 4px;
+}
+
+.import-review-link-results {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.import-review-link-results button {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #dde3dd;
+  border-radius: 4px;
+  background: white;
+  padding: 0.35rem 0.5rem;
+}
+
+.import-review-link-results button:hover {
+  border-color: #3a7d44;
+  background: #eef5ee;
+}
+
 /* ---- Multi-option field (text1/text2/country/sold-per) ---- */
 
 .multi-option-field {

@@ -123,6 +123,57 @@ function migrateSupplierCode(raw: unknown): MultiValueField {
   return createMultiValueField()
 }
 
+/** Finds the product (if any) whose saved supplierCode options include the row's code (case/
+ * whitespace-insensitive, matched against ANY saved option — not just the favorite). A codeless row,
+ * or one whose code matches nothing, is NEVER matched by name instead — real catalogs routinely have
+ * several genuinely different products sharing one generic name (e.g. several rows all named
+ * "Aardappel", each a different variety only distinguished by its own text/land fields), and matching
+ * by name silently collapsed those into one, discarding the rest. Factored out so the import-review
+ * flow (see previewImport) can check for a match without necessarily applying anything yet. */
+function findExistingBySupplierCode(products: Product[], rawCode: string | undefined): Product | undefined {
+  const trimmed = rawCode?.trim() ?? ''
+  return trimmed ? products.find((p) => multiFieldMatchesAny(p.supplierCode, trimmed)) : undefined
+}
+
+/** The narrow update a matched import row applies to an existing product — see upsertBySupplierCode's
+ * doc comment for why it's deliberately limited to just these fields. Factored out so the same update
+ * can also be applied when the user manually links a non-matching row to an existing product (see
+ * linkImportRowToProduct), not only from an automatic code match. */
+function applyMatchedImportRow(p: Product, data: ProductImportRow, now: string): Product {
+  return {
+    ...p,
+    supplierCode: data.supplierCode ? withFavoritedMulti(p.supplierCode, data.supplierCode) : p.supplierCode,
+    countryOfOrigin: data.countryOfOrigin ? withFavoritedMulti(p.countryOfOrigin, data.countryOfOrigin) : p.countryOfOrigin,
+    quantity: 1,
+    isPromotion: data.isPromotion ?? p.isPromotion,
+    pricePerKg: data.pricePerKg ?? p.pricePerKg,
+    updatedAt: now
+  }
+}
+
+/** Builds a brand-new product from an import row that has no existing match — the same shape
+ * upsertBySupplierCode's create branch always used, factored out so the import-review flow's explicit
+ * "create as new" action (see createFromImportRow) produces an identical result. */
+function freshProductFromImportRow(data: ProductImportRow, now: string): Product {
+  return {
+    id: crypto.randomUUID(),
+    name: data.name?.trim() ?? '',
+    scaleCode: data.scaleCode?.trim() ?? '',
+    supplierCode: multiFieldFromImport(data.supplierCode),
+    text1: multiFieldFromImport(data.text1),
+    text2: multiFieldFromImport(data.text2),
+    countryOfOrigin: multiFieldFromImport(data.countryOfOrigin),
+    soldPer: multiFieldFromImport(data.soldPer),
+    quantity: 1,
+    isPromotion: data.isPromotion ?? false,
+    soldByWeight: data.soldByWeight ?? false,
+    pricePerKg: data.pricePerKg ?? null,
+    weightGrams: data.weightGrams ?? null,
+    createdAt: now,
+    updatedAt: now
+  }
+}
+
 interface ProductState {
   products: Product[]
   lastUsedDefaults: LastUsedDefaults
@@ -172,6 +223,26 @@ interface ProductState {
    * rather than a silent loss. Every row unconditionally sets quantity to 1 — importing a sheet means
    * "order one card for everything in it" by default. */
   upsertBySupplierCode: (data: ProductImportRow) => 'created' | 'updated'
+
+  /** Splits a batch of import rows into ones that match an existing product (applied immediately, via
+   * the exact same narrow update upsertBySupplierCode uses on a match) and ones that don't. A
+   * non-matching row is NOT auto-created — once a catalog is largely built up, most "new" rows from an
+   * import are actually near-duplicates (a typo'd code, a product that's already in the catalog under
+   * a different code) rather than genuinely new products, so silently creating one for every non-match
+   * just grows the catalog with clutter. Returns the non-matching rows so the caller can let the user
+   * decide, per row: create it as a genuinely new product (createFromImportRow), attach it to an
+   * existing product they recognize it as (linkImportRowToProduct), or not import it at all. */
+  previewImport: (rows: ProductImportRow[]) => { updated: number; pending: ProductImportRow[] }
+
+  /** Resolves one row from previewImport's pending list by creating it as a brand-new product — the
+   * same result upsertBySupplierCode would have produced had the row not gone through review at all. */
+  createFromImportRow: (data: ProductImportRow) => void
+
+  /** Resolves one row from previewImport's pending list by attaching it to an EXISTING product the
+   * user picked, instead of creating a new one: applies the same narrow update upsertBySupplierCode
+   * applies on any other match, including adding the row's code as a saved option — so the exact same
+   * code matches this product directly next time, no review needed for it again. */
+  linkImportRowToProduct: (productId: string, data: ProductImportRow) => void
 
   /** Narrow-scope import for correcting Naam/Top tekst/Tekst onder across an existing catalog without
    * the collateral risk a full upsertBySupplierCode carries: a re-exported sheet often still has the
@@ -287,61 +358,47 @@ export const useProductStore = create<ProductState>((set, get) => {
       }),
 
     upsertBySupplierCode: (data) => {
-      const trimmedCode = data.supplierCode?.trim() ?? ''
-      // A codeless row is NEVER matched against an existing product, even by name — real catalogs
-      // routinely have several genuinely different products sharing one generic name (e.g. several
-      // rows all named "Aardappel", each a different variety only distinguished by its own text/land
-      // fields), and matching by name silently collapsed those into one, discarding the rest. Every
-      // codeless row always creates its own product; the tradeoff is that re-importing the same
-      // codeless row again later creates another one rather than updating it — a visible, easily
-      // cleaned-up duplicate, which is a far smaller problem than silently losing distinct products.
-      const existing = trimmedCode ? get().products.find((p) => multiFieldMatchesAny(p.supplierCode, trimmedCode)) : undefined
       const now = new Date().toISOString()
-
+      const existing = findExistingBySupplierCode(get().products, data.supplierCode)
       if (existing) {
-        // Deliberately narrow: only the three fields a weekly order sheet is actually meant to refresh
-        // (see the doc comment above) plus the join-key bookkeeping (supplierCode, quantity). Every
-        // other field is left out of this object entirely — the `...p` spread keeps it untouched,
-        // regardless of what the imported row happened to contain for it.
-        updateOne(existing.id, (p) => ({
-          ...p,
-          supplierCode: data.supplierCode ? withFavoritedMulti(p.supplierCode, data.supplierCode) : p.supplierCode,
-          countryOfOrigin: data.countryOfOrigin ? withFavoritedMulti(p.countryOfOrigin, data.countryOfOrigin) : p.countryOfOrigin,
-          quantity: 1,
-          isPromotion: data.isPromotion ?? p.isPromotion,
-          pricePerKg: data.pricePerKg ?? p.pricePerKg,
-          updatedAt: now
-        }))
+        updateOne(existing.id, (p) => applyMatchedImportRow(p, data, now))
         return 'updated'
       }
-
-      const fresh: Product = {
-        id: crypto.randomUUID(),
-        name: data.name?.trim() ?? '',
-        scaleCode: data.scaleCode?.trim() ?? '',
-        supplierCode: multiFieldFromImport(data.supplierCode),
-        text1: multiFieldFromImport(data.text1),
-        text2: multiFieldFromImport(data.text2),
-        countryOfOrigin: multiFieldFromImport(data.countryOfOrigin),
-        soldPer: multiFieldFromImport(data.soldPer),
-        quantity: 1,
-        isPromotion: data.isPromotion ?? false,
-        soldByWeight: data.soldByWeight ?? false,
-        pricePerKg: data.pricePerKg ?? null,
-        weightGrams: data.weightGrams ?? null,
-        createdAt: now,
-        updatedAt: now
-      }
+      const fresh = freshProductFromImportRow(data, now)
       set({ products: [...get().products, fresh] })
       persistCurrent()
       return 'created'
     },
 
+    previewImport: (rows) => {
+      const now = new Date().toISOString()
+      let updated = 0
+      const pending: ProductImportRow[] = []
+      for (const row of rows) {
+        const existing = findExistingBySupplierCode(get().products, row.supplierCode)
+        if (existing) {
+          updateOne(existing.id, (p) => applyMatchedImportRow(p, row, now))
+          updated++
+        } else {
+          pending.push(row)
+        }
+      }
+      return { updated, pending }
+    },
+
+    createFromImportRow: (data) => {
+      const fresh = freshProductFromImportRow(data, new Date().toISOString())
+      set({ products: [...get().products, fresh] })
+      persistCurrent()
+    },
+
+    linkImportRowToProduct: (productId, data) => {
+      updateOne(productId, (p) => applyMatchedImportRow(p, data, new Date().toISOString()))
+    },
+
     updateTextFieldsBySupplierCode: (data) => {
-      const trimmedCode = data.supplierCode?.trim() ?? ''
       // This narrow mode only ever matches by code — a row with none has nothing to scope-correct.
-      if (!trimmedCode) return 'not-found'
-      const existing = get().products.find((p) => multiFieldMatchesAny(p.supplierCode, trimmedCode))
+      const existing = findExistingBySupplierCode(get().products, data.supplierCode)
       if (!existing) return 'not-found'
       updateOne(existing.id, (p) => ({
         ...p,

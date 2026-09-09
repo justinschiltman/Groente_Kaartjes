@@ -3,8 +3,9 @@ import { useProductStore } from '@renderer/state/productStore'
 import { parseDecimalNl } from '@shared/format'
 import { deriveSoldPer, effectiveSoldPer } from '@shared/mergeProductRow'
 import { multiValueToExportText } from '@shared/types/product'
-import type { Product, ProductExportRow } from '@shared/types/product'
+import type { Product, ProductExportRow, ProductImportRow } from '@shared/types/product'
 import ProcessButton from '../export/ProcessButton'
+import ImportReviewModal from './ImportReviewModal'
 import ProductEditModal from './ProductEditModal'
 
 type SortField =
@@ -114,7 +115,9 @@ function ProductsPage(): React.JSX.Element {
   const updateProduct = useProductStore((state) => state.updateProduct)
   const addOption = useProductStore((state) => state.addOption)
   const removeOption = useProductStore((state) => state.removeOption)
-  const upsertBySupplierCode = useProductStore((state) => state.upsertBySupplierCode)
+  const previewImport = useProductStore((state) => state.previewImport)
+  const createFromImportRow = useProductStore((state) => state.createFromImportRow)
+  const linkImportRowToProduct = useProductStore((state) => state.linkImportRowToProduct)
   const updateTextFieldsBySupplierCode = useProductStore((state) => state.updateTextFieldsBySupplierCode)
   const replaceAllFromImport = useProductStore((state) => state.replaceAllFromImport)
   const resetAllQuantities = useProductStore((state) => state.resetAllQuantities)
@@ -135,6 +138,15 @@ function ProductsPage(): React.JSX.Element {
   const [exporting, setExporting] = useState(false)
   const [exportSummary, setExportSummary] = useState<string | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
+  // Rows from the most recent "Excel importeren" that didn't match an existing product on Bestelcode
+  // — held here so ImportReviewModal can let the user resolve each one (create/link/skip) instead of
+  // previewImport having auto-created them. null means no review is in progress.
+  const [pendingReview, setPendingReview] = useState<{
+    rows: ProductImportRow[]
+    updatedCount: number
+    totalRows: number
+    skippedRowCount: number
+  } | null>(null)
 
   // Re-applies the search against the CURRENT product list — called on every keystroke (normal live
   // search) and whenever the search box regains focus, so clicking back into it after editing products
@@ -234,15 +246,16 @@ function ProductsPage(): React.JSX.Element {
         const notFoundNote = notFound > 0 ? `, ${notFound} bestelcode(s) niet gevonden (overgeslagen, niet aangemaakt)` : ''
         setImportSummary(`${updated} product(en) bijgewerkt (alleen Naam, Top tekst en Tekst onder)${notFoundNote}.`)
       } else {
-        let created = 0
-        let updated = 0
-        for (const row of rows) {
-          const outcome = upsertBySupplierCode(row)
-          if (outcome === 'created') created++
-          else updated++
+        const { updated, pending } = previewImport(rows)
+        if (pending.length > 0) {
+          // Rows that matched are already applied at this point (see previewImport) — only the
+          // non-matches wait on the user, via ImportReviewModal below. clearFilterAfterImport and the
+          // final summary happen once that review finishes (see handleReviewDone), not here.
+          setPendingReview({ rows: pending, updatedCount: updated, totalRows: rows.length, skippedRowCount: skipped })
+          return
         }
         const skippedNote = skipped > 0 ? `, ${skipped} rij(en) overgeslagen (geen naam en geen Bestelcode)` : ''
-        setImportSummary(`${created} nieuw, ${updated} bijgewerkt (${rows.length} rijen verwerkt${skippedNote}) — allemaal op 1 kaartje gezet.`)
+        setImportSummary(`${updated} bijgewerkt (${rows.length} rijen verwerkt${skippedNote}) — allemaal op 1 kaartje gezet.`)
       }
       clearFilterAfterImport()
     } catch (error) {
@@ -250,6 +263,23 @@ function ProductsPage(): React.JSX.Element {
     } finally {
       setImporting(false)
     }
+  }
+
+  function handleReviewLink(row: ProductImportRow, productId: string): void {
+    linkImportRowToProduct(productId, row)
+  }
+
+  function handleReviewDone(tally: { created: number; linked: number; skipped: number }): void {
+    if (!pendingReview) return
+    const skippedNote =
+      pendingReview.skippedRowCount > 0 ? `, ${pendingReview.skippedRowCount} rij(en) overgeslagen (geen naam en geen Bestelcode)` : ''
+    const parts = [`${pendingReview.updatedCount} bijgewerkt`]
+    if (tally.created > 0) parts.push(`${tally.created} nieuw aangemaakt`)
+    if (tally.linked > 0) parts.push(`${tally.linked} gekoppeld aan bestaand product`)
+    if (tally.skipped > 0) parts.push(`${tally.skipped} overgeslagen`)
+    setImportSummary(`${parts.join(', ')} (${pendingReview.totalRows} rijen verwerkt${skippedNote}).`)
+    setPendingReview(null)
+    clearFilterAfterImport()
   }
 
   async function handleReplaceAll(): Promise<void> {
@@ -300,7 +330,13 @@ function ProductsPage(): React.JSX.Element {
           }}
           onFocus={() => applyFilter(search)}
         />
-        <button type="button" className={importing ? 'products-import-button importing' : 'products-import-button'} onClick={handleImport} disabled={importing}>
+        <button
+          type="button"
+          className={importing ? 'products-import-button importing' : 'products-import-button'}
+          onClick={handleImport}
+          disabled={importing}
+          title="Rijen die matchen op Bestelcode worden direct bijgewerkt (Prijs per kilo, Land van herkomst, Actie). Rijen die niet matchen worden NIET automatisch aangemaakt — die krijg je apart te zien om te bevestigen als nieuw product of te koppelen aan een bestaand product."
+        >
           {importing && <span className="spinner" aria-hidden="true" />}
           {importing ? 'Bezig met importeren…' : 'Excel importeren'}
         </button>
@@ -418,6 +454,16 @@ function ProductsPage(): React.JSX.Element {
 
       {editingProductId && (
         <ProductEditModal key={editingProductId} productId={editingProductId} onClose={() => setEditingProductId(null)} />
+      )}
+
+      {pendingReview && (
+        <ImportReviewModal
+          rows={pendingReview.rows}
+          products={products}
+          onCreate={createFromImportRow}
+          onLink={handleReviewLink}
+          onDone={handleReviewDone}
+        />
       )}
     </div>
   )
